@@ -1,0 +1,20 @@
+# Python
+*.pyc
+__pycache__/
+
+# Virtual environment
+venv/
+.venv/
+
+# Database
+db.sqlite3
+
+# Django migrations (keep .py files, ignore cache only)
+*/migrations/*.pyc
+*/migrations/__pycache__/
+
+# Environment variables
+.env
+
+# Logs
+*.log
