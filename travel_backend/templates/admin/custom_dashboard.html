@@ -1,0 +1,79 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="tm-dashboard">
+  <h1 class="tm-page-title">Dashboard</h1>
+  <div class="tm-dashboard-hero">
+    <div>
+      <h1 class="tm-dashboard-title">Travel Command Center</h1>
+      <p class="tm-dashboard-subtitle">Your default admin home with fast actions and full Django functionality.</p>
+    </div>
+    <a class="tm-dashboard-account" href="{% url 'admin:password_change' %}">Account Settings</a>
+  </div>
+
+  <div class="tm-stats-grid">
+    <a class="tm-stat-card" href="{{ destination_changelist_url }}">
+      <strong>{{ total_destinations }}</strong>
+      <span>Total Destinations</span>
+    </a>
+    <a class="tm-stat-card" href="{{ package_changelist_url }}">
+      <strong>{{ total_packages }}</strong>
+      <span>Total Packages</span>
+    </a>
+    <a class="tm-stat-card" href="{% url 'admin:auth_user_changelist' %}">
+      <strong>{{ total_users }}</strong>
+      <span>Total Users</span>
+    </a>
+    <a class="tm-stat-card" href="{% url 'admin:index' %}">
+      <strong>{{ total_bookings }}</strong>
+      <span>Total Bookings</span>
+    </a>
+  </div>
+
+  <div class="tm-dashboard-grid">
+    <section class="tm-panel tm-activity-panel">
+      <h2>Recent Activities</h2>
+      <ul class="tm-activity-list">
+        {% for item in recent_activities %}
+          <li>
+            <span class="tm-activity-dot"></span>
+            <div class="tm-activity-meta">
+              <span class="tm-activity-text">{{ item.label }} - {{ item.detail }}</span>
+            </div>
+            <a href="{{ item.url }}">Open</a>
+          </li>
+        {% empty %}
+          <li class="tm-empty">No recent activities.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <aside class="tm-panel tm-module-panel">
+      <h2>Modules</h2>
+      <div class="tm-module-list">
+        {% for card in module_cards %}
+          <article class="tm-module-card">
+            <div class="tm-module-meta">
+              <span class="tm-module-text">{{ card.title|upper }} MODULE - {{ card.count }} records available</span>
+            </div>
+            <div class="tm-module-links">
+              <a href="{{ card.url }}">Open</a>
+              <a href="{{ card.add_url }}">Add</a>
+            </div>
+          </article>
+        {% endfor %}
+
+        <article class="tm-module-card tm-account-card">
+          <div class="tm-module-meta">
+            <span class="tm-module-text">ACCOUNT - Security and session controls</span>
+          </div>
+          <div class="tm-module-links">
+            <a href="{% url 'admin:password_change' %}">Password</a>
+            <a href="{% url 'admin:logout' %}">Logout</a>
+          </div>
+        </article>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

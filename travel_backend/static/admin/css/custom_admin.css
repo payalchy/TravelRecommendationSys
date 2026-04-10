@@ -1,0 +1,518 @@
+:root {
+  --bg-main: #0f1730;
+  --bg-panel: #1a2446;
+  --bg-row: #1c2647;
+  --bg-row-hover: #26335e;
+  --text-main: #eaf2ff;
+  --text-muted: #b8c5e2;
+  --border: rgba(255, 255, 255, 0.14);
+  --accent: #9dd9ff;
+  --button: #1c7f66;
+  --button-hover: #1f9578;
+}
+
+html,
+body {
+  font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
+}
+
+#header {
+  background: linear-gradient(120deg, #0e1428, #1a2343);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border);
+}
+
+#site-name a {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+#user-tools,
+#user-tools a,
+div.breadcrumbs,
+div.breadcrumbs a {
+  color: var(--text-muted);
+}
+
+#container {
+  background: var(--bg-main);
+}
+
+#nav-sidebar,
+#toggle-nav-sidebar {
+  background: var(--bg-main);
+  color: var(--text-main);
+  border-right: 1px solid var(--border);
+}
+
+#nav-sidebar a,
+#nav-sidebar th,
+#nav-sidebar td,
+#nav-sidebar caption {
+  color: var(--text-main);
+}
+
+#nav-sidebar tr[class*="app-"] {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+#nav-sidebar tr[class*="app-"],
+#nav-sidebar tr[class*="app-"] th,
+#nav-sidebar tr[class*="app-"] td,
+#nav-sidebar tr[class*="model-"],
+#nav-sidebar tr[class*="model-"] th,
+#nav-sidebar tr[class*="model-"] td,
+#nav-sidebar tr.current-app,
+#nav-sidebar tr.current-app th,
+#nav-sidebar tr.current-app td,
+#nav-sidebar tr.current-model,
+#nav-sidebar tr.current-model th,
+#nav-sidebar tr.current-model td {
+  background: var(--bg-main) !important;
+}
+
+#nav-sidebar tr[class*="app-"] th,
+#nav-sidebar tr[class*="app-"] td,
+#nav-sidebar tr[class*="model-"] th,
+#nav-sidebar tr[class*="model-"] td {
+  background: var(--bg-main) !important;
+}
+
+#nav-sidebar tr[class*="model-"] a {
+  display: block;
+  margin: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text-main) !important;
+}
+
+#nav-sidebar li,
+#nav-sidebar li a,
+#nav-sidebar li a:link,
+#nav-sidebar li a:visited,
+#nav-sidebar li a:hover,
+#nav-sidebar li a:active,
+#nav-sidebar li.current-model,
+#nav-sidebar li.current-model a,
+#nav-sidebar li.current-app,
+#nav-sidebar li.current-app a {
+  color: var(--text-main) !important;
+}
+
+#nav-sidebar li.current-model,
+#nav-sidebar li.current-app,
+#nav-sidebar li.current-model a,
+#nav-sidebar li.current-app a {
+  background: transparent !important;
+}
+
+#nav-sidebar tr[class*="model-"] a,
+#nav-sidebar tr[class*="model-"] a:link,
+#nav-sidebar tr[class*="model-"] a:visited,
+#nav-sidebar tr[class*="model-"] a:hover,
+#nav-sidebar tr[class*="model-"] a:active,
+#nav-sidebar .current-model a,
+#nav-sidebar .current-app a {
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+#nav-sidebar tr[class*="model-"] a:hover,
+#nav-sidebar .current-model a {
+  background: rgba(110, 165, 255, 0.22);
+  color: #ffffff;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+  background: var(--bg-panel);
+  color: var(--text-main);
+}
+
+.button,
+a.button,
+input[type=submit],
+input[type=button],
+.submit-row input {
+  background: var(--button);
+  border-color: var(--button);
+  color: #eafff8;
+}
+
+.button:hover,
+a.button:hover,
+input[type=submit]:hover,
+input[type=button]:hover,
+.submit-row input:hover {
+  background: var(--button-hover);
+  border-color: var(--button-hover);
+}
+
+.change-list #content,
+.change-list #content-main,
+.change-list #changelist,
+.change-list #changelist-form,
+.change-list #changelist table,
+.change-list #changelist td,
+.change-list #changelist th {
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+.change-list #changelist #toolbar,
+.change-list .actions,
+.change-list .paginator,
+.change-list #changelist-filter {
+  background: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border) !important;
+}
+
+.change-list #changelist table {
+  border: 1px solid var(--border) !important;
+}
+
+.change-list #changelist table thead th {
+  background: #202f5f !important;
+  color: var(--text-main) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.change-list #changelist table tbody tr,
+.change-list #changelist table tbody tr:nth-child(odd),
+.change-list #changelist table tbody tr:nth-child(even),
+.change-list #changelist table tbody tr.selected {
+  background: var(--bg-row) !important;
+}
+
+.change-list #changelist table tbody tr td,
+.change-list #changelist table tbody tr th,
+.change-list #result_list tr.row1 td,
+.change-list #result_list tr.row1 th,
+.change-list #result_list tr.row2 td,
+.change-list #result_list tr.row2 th {
+  background: var(--bg-row) !important;
+}
+
+.change-list #changelist table tbody tr:hover {
+  background: var(--bg-row-hover) !important;
+}
+
+.change-list #changelist table tbody td,
+.change-list #changelist table tbody th,
+.change-list #changelist table tbody td a,
+.change-list #changelist table tbody th a,
+.change-list #changelist-filter h2,
+.change-list #changelist-filter h3,
+.change-list #changelist-filter a,
+.change-list #changelist-filter li,
+.change-list .paginator a {
+  color: var(--text-main) !important;
+}
+
+.change-list #changelist table tbody td a:hover,
+.change-list #changelist table tbody th a:hover,
+.change-list .paginator a:hover {
+  color: var(--accent) !important;
+}
+
+.change-list #changelist-search input,
+.change-list #changelist-search button,
+.change-list .actions select,
+.change-list .actions input,
+.change-list .actions button,
+#nav-filter {
+  background: #111a35;
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tm-admin-title {
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tm-admin-sub {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.tm-admin-badge,
+.tm-admin-edit-btn {
+  background: #dce8ff;
+  border: 1px solid #9fb8ef;
+  color: #173670;
+  border-radius: 999px;
+}
+
+.tm-admin-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.tm-admin-edit-btn {
+  display: inline-block;
+  padding: 6px 12px;
+  text-decoration: none;
+}
+
+.change-list #changelist table tbody td .tm-admin-edit-btn {
+  background: #dce8ff !important;
+  border-color: #9fb8ef !important;
+  color: #173670 !important;
+}
+
+.tm-admin-rating {
+  color: #8df0d7;
+  font-weight: 700;
+}
+
+.tm-admin-thumb {
+  width: 132px;
+  height: 74px;
+  border-radius: 9px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+/* Keep package preview image small in changelist table. */
+.change-list td.field-image_preview img,
+.change-list th.field-image_preview img,
+.change-list img.tm-admin-thumb {
+  width: 96px !important;
+  height: 56px !important;
+  max-width: 96px !important;
+  max-height: 56px !important;
+  object-fit: cover !important;
+  display: block;
+}
+
+.tm-admin-thumb-empty {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+}
+
+.tm-dashboard {
+  padding: 8px 0 24px;
+}
+
+.tm-dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  background: linear-gradient(180deg, #121a35, #141d3a);
+  border-radius: 18px;
+  padding: 18px 18px 14px;
+  margin-bottom: 16px;
+}
+
+.tm-dashboard-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.tm-dashboard-subtitle {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+}
+
+.tm-dashboard-account {
+  background: #22415a;
+  color: var(--text-main);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tm-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tm-stat-card {
+  background: #2a314e;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: var(--text-main);
+}
+
+.tm-stat-card strong {
+  display: inline-block;
+  font-size: 22px;
+  margin-right: 6px;
+}
+
+.tm-stat-card span {
+  font-size: 13px;
+}
+
+.tm-dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+
+.tm-panel {
+  background: #2b3150;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.tm-panel h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.tm-activity-list,
+.tm-module-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tm-activity-list li,
+.tm-module-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.tm-activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tm-activity-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--text-main);
+  border-radius: 999px;
+  margin-top: 8px;
+  flex: 0 0 auto;
+}
+
+.tm-activity-meta,
+.tm-module-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tm-activity-text,
+.tm-module-text {
+  display: block;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tm-activity-list a,
+.tm-module-links a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.tm-module-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+.tm-empty {
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .tm-dashboard-hero,
+  .tm-dashboard-grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .tm-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .tm-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tm-dashboard-title {
+    font-size: 24px;
+  }
+
+  .tm-dashboard-account {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 1024px) {
+  #container {
+    background: var(--bg-main);
+  }
+}
+
+/* Dashboard consistency overrides */
+.tm-dashboard,
+.tm-dashboard * {
+  color: var(--text-main);
+}
+
+.tm-dashboard-title,
+.tm-panel h2,
+.tm-stat-card strong,
+.tm-stat-card span,
+.tm-activity-list strong,
+.tm-module-card strong {
+  color: #ffffff !important;
+}
+
+.tm-dashboard-subtitle,
+.tm-empty {
+  color: var(--text-muted) !important;
+}
+
+.tm-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.tm-dashboard-grid {
+  display: grid !important;
+  grid-template-columns: 2fr 1fr !important;
+}
+
+.tm-panel {
+  min-height: 100%;
+}
+
+.tm-module-panel {
+  display: block !important;
+}
+
+@media (max-width: 900px) {
+  .tm-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tm-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
