@@ -5,14 +5,43 @@ from django.shortcuts import render
 from django.urls import reverse
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Destination, TravelPackage, PackageItinerary
 from .engine import recommend_destinations, recommend_packages
 
+
+# ---------------- HELPER FUNCTION ----------------
+
+def convert_styles_to_weights(profile):
+    styles = profile.preferred_travel_style.all()
+
+    weights = {
+        "culture": 0,
+        "adventure": 0,
+        "wildlife": 0,
+        "sightseeing": 0,
+        "history": 0,
+    }
+
+    if not styles:
+        return {k: 0.2 for k in weights}
+
+    weight_value = 1 / styles.count()
+
+    for style in styles:
+        name = style.name.lower()
+        if name in weights:
+            weights[name] = weight_value
+
+    return weights
+
+
+# ---------------- ADMIN DASHBOARD ----------------
 
 @staff_member_required
 def admin_dashboard(request):
@@ -22,59 +51,65 @@ def admin_dashboard(request):
     )
 
     context = {
-        **admin.site.each_context(request),  # keeps admin header/sidebar context
+        **admin.site.each_context(request),
         "total_destinations": Destination.objects.count(),
         "total_packages": TravelPackage.objects.count(),
         "total_itineraries": PackageItinerary.objects.count(),
         "recent_packages": recent_packages,
-        "destination_changelist_url": reverse(
-            "admin:recommendation_destination_changelist"
-        ),
-        "package_changelist_url": reverse(
-            "admin:recommendation_travelpackage_changelist"
-        ),
-        "itinerary_changelist_url": reverse(
-            "admin:recommendation_packageitinerary_changelist"
-        ),
+        "destination_changelist_url": reverse("admin:recommendation_destination_changelist"),
+        "package_changelist_url": reverse("admin:recommendation_travelpackage_changelist"),
+        "itinerary_changelist_url": reverse("admin:recommendation_packageitinerary_changelist"),
     }
     return render(request, "admin/custom_dashboard.html", context)
 
 
+# ---------------- RECOMMENDATION API ----------------
+
 class RecommendationAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]   # 🔥 LOGIN REQUIRED
 
     def post(self, request):
-        payload = request.data or {}
 
+        # ---------------- GET USER PROFILE ----------------
+        user = request.user
+
+        try:
+            profile = user.userprofile
+        except:
+            return Response({"error": "UserProfile not found"}, status=404)
+
+        # ---------------- USER CONTEXT FROM PROFILE ----------------
         user_context = {
-            "budget": payload.get("budget", 0),
-            "distance": payload.get("distance", 0),
-            "duration": payload.get("duration", 1),
-            "travel_type": payload.get("travel_type", ""),
-            "user_latitude": payload.get("user_latitude"),
-            "user_longitude": payload.get("user_longitude"),
+            "budget": profile.budget,
+            "distance": 100,  # default fallback
+            "duration": profile.preferred_duration,
+            "travel_type": (
+                profile.preferred_travel_style.first().name
+                if profile.preferred_travel_style.exists()
+                else ""
+            ),
+            "user_latitude": float(profile.latitude) if profile.latitude is not None else 27.7172,
+            "user_longitude": float(profile.longitude) if profile.longitude is not None else 85.3240,
         }
 
-        user_destination_preferences = {
-            "culture": payload.get("culture", 0),
-            "adventure": payload.get("adventure", 0),
-            "wildlife": payload.get("wildlife", 0),
-            "sightseeing": payload.get("sightseeing", 0),
-            "history": payload.get("history", 0),
-        }
+        # ---------------- DESTINATION PREFERENCES (AUTO) ----------------
+        user_destination_preferences = convert_styles_to_weights(profile)
 
-        preference_weights = payload.get("preference_weights") or {
+        # ---------------- DEFAULT WEIGHTS ----------------
+        preference_weights = {
             "budget": 0.3,
             "distance": 0.3,
             "duration": 0.2,
             "travel_type": 0.2,
         }
-        context_weights = payload.get("context_weights") or {
+
+        context_weights = {
             "budget": 0.4,
             "distance": 0.3,
             "duration": 0.3,
         }
-        destination_weights = payload.get("destination_weights") or {
+
+        destination_weights = {
             "culture": 0.2,
             "adventure": 0.2,
             "wildlife": 0.2,
@@ -82,19 +117,24 @@ class RecommendationAPIView(APIView):
             "history": 0.2,
         }
 
-        k = payload.get("k", 5)
-        top_n = payload.get("top_n", 5)
-        destination_top_n = payload.get("destination_top_n", top_n)
-        alpha = payload.get("alpha", 0.4)
-        beta = payload.get("beta", 0.4)
-        gamma = payload.get("gamma", 0.2)
-        destination_alpha = payload.get("destination_alpha", 0.5)
-        destination_beta = payload.get("destination_beta", 0.3)
-        destination_gamma = payload.get("destination_gamma", 0.2)
+        # ---------------- PARAMETERS ----------------
+        k = 5
+        top_n = 5
+        destination_top_n = 5
 
+        alpha = 0.4
+        beta = 0.4
+        gamma = 0.2
+
+        destination_alpha = 0.5
+        destination_beta = 0.3
+        destination_gamma = 0.2
+
+        # ---------------- DATA ----------------
         packages = TravelPackage.objects.select_related("start_location", "end_location").all()
         destinations = Destination.objects.all()
 
+        # ---------------- PACKAGE RANKING ----------------
         ranked = recommend_packages(
             user_context=user_context,
             packages=packages,
@@ -129,6 +169,7 @@ class RecommendationAPIView(APIView):
                 }
             )
 
+        # ---------------- DESTINATION RANKING ----------------
         destination_ranked = recommend_destinations(
             user_destination_preferences=user_destination_preferences,
             user_context=user_context,
@@ -174,6 +215,8 @@ class RecommendationAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
+# ---------------- GEOCODE API ----------------
 
 class DestinationGeocodeAPIView(APIView):
     permission_classes = [AllowAny]

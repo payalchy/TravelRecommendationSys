@@ -23,7 +23,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     #  MUST BE POSITIVE (>0)
-    budget_preference = models.FloatField(
+    budget = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0.01)]
     )
@@ -40,6 +40,11 @@ class UserProfile(models.Model):
         choices=SEASON_CHOICES,
         default="summer",
     )
+
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+
+    
 
     def __str__(self):
         return self.user.username

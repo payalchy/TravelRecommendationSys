@@ -41,5 +41,5 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = [
             'id', 'username', 'email', 'preferred_travel_style', 
-            'preferred_season', 'budget_preference', 'preferred_duration'
+            'preferred_season', 'budget', 'preferred_duration'
         ]
