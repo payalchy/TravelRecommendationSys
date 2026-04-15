@@ -20,3 +20,5 @@ db.sqlite3
 *.log
 
 *.xlsx
+
+media/
