@@ -157,10 +157,20 @@ class RecommendationAPIView(APIView):
                     "package_type": package.package_type,
                     "transport_mode": package.transport_mode,
                     "budget": float(package.budget),
+                    "image": request.build_absolute_uri(package.image.url) if package.image else None,
+                    "description": package.description,
                     "computed_distance_km": round(item.computed_distance_km, 6),
                     "duration_days": int(package.days),
                     "start_location": package.start_location.pName if package.start_location else None,
                     "end_location": package.end_location.pName if package.end_location else None,
+                    "itinerary": [
+                        {
+                            "day": i.day_number,
+                            "destination": i.destination.pName,
+                            "description": i.description,
+                        }
+                        for i in package.itinerary.all()
+                    ],
                     "cps": round(item.cps, 6),
                     "distance_score": round(item.distance, 6),
                     "cost_efficiency": round(item.cost_efficiency, 6),

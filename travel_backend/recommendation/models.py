@@ -38,6 +38,10 @@ class Destination(models.Model):
 
     tags = models.TextField(null=True, blank=True)
 
+    image = models.URLField(blank=True, null=True)
+
+
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -100,6 +104,8 @@ class PackageItinerary(models.Model):
     day_number = models.IntegerField()
     destination = models.ForeignKey('Destination', on_delete=models.CASCADE)
     description = models.TextField(default="")
+
+    image = models.URLField(blank=True, null=True)
 
     def clean(self):
         if self.day_number > self.package.days:
