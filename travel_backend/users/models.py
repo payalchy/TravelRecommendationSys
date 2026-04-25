@@ -48,3 +48,24 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.user.username
+    
+# Profile History
+
+class UserProfileHistory(models.Model):
+    """
+    Stores snapshot whenever user updates profile
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    budget = models.FloatField()
+    preferred_duration = models.PositiveIntegerField()
+    preferred_season = models.CharField(max_length=20)
+
+    travel_styles = models.TextField()  # store names as string
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.created_at}"
+

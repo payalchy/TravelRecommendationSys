@@ -2,6 +2,10 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import UserProfile, TravelStyle
 
+
+# =========================
+# REGISTER SERIALIZER
+# =========================
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -10,36 +14,58 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password']
 
     def create(self, validated_data):
-        # Create user
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password']
         )
-        # Automatically create user profile
+
+        # auto-create profile
         UserProfile.objects.create(user=user)
         return user
 
 
+# =========================
+# TRAVEL STYLE SERIALIZER (IMPORTANT FIX)
+# =========================
+class TravelStyleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TravelStyle
+        fields = ['id', 'name']
+
+
+# =========================
+# USER PROFILE SERIALIZER
+# =========================
 class UserProfileSerializer(serializers.ModelSerializer):
-    # Show username and email from related user
+
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
 
-    preferred_travel_style = serializers.PrimaryKeyRelatedField(
+    #  return full objects (NOT just IDs)
+    preferred_travel_style = TravelStyleSerializer(many=True, read_only=True)
+
+    # write-only field for updating (IDs from frontend)
+    preferred_travel_style_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=TravelStyle.objects.all(),
-        style={'base_template': 'select_multiple.html'}
+        write_only=True,
+        source='preferred_travel_style'
     )
 
     preferred_season = serializers.ChoiceField(
-        choices=UserProfile.SEASON_CHOICES,
-        style={'base_template': 'select.html'}
+        choices=UserProfile.SEASON_CHOICES
     )
 
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'username', 'email', 'preferred_travel_style', 
-            'preferred_season', 'budget', 'preferred_duration'
+            'id',
+            'username',
+            'email',
+            'budget',
+            'preferred_duration',
+            'preferred_season',
+            'preferred_travel_style',
+            'preferred_travel_style_ids'
         ]

@@ -66,7 +66,7 @@ def admin_dashboard(request):
 # ---------------- RECOMMENDATION API ----------------
 
 class RecommendationAPIView(APIView):
-    permission_classes = [IsAuthenticated]   # 🔥 LOGIN REQUIRED
+    permission_classes = [IsAuthenticated]   # LOGIN REQUIRED
 
     def post(self, request):
 

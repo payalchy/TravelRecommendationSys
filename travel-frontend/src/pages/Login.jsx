@@ -25,7 +25,7 @@ export default function Login() {
         }
       );
 
-      // 🔥 DEBUG (IMPORTANT FOR YOUR ERROR)
+      //  DEBUG (IMPORTANT FOR YOUR ERROR)
       console.log("LOGIN RESPONSE:", res.data);
 
       const access = res.data?.access;
