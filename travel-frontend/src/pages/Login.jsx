@@ -12,6 +12,14 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
 
+  const isProfileComplete = (profile) => {
+    return Boolean(
+      profile?.budget &&
+      profile?.preferred_duration &&
+      profile?.preferred_travel_style?.length
+    );
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -31,23 +39,35 @@ export default function Login() {
       const access = res.data?.access;
       const refresh = res.data?.refresh;
 
-      // 🚨 SAFETY CHECK (prevents broken token issues)
+      // SAFETY CHECK (prevents broken token issues)
       if (!access || !refresh) {
         console.log("INVALID TOKEN RESPONSE:", res.data);
         alert("Login failed: Invalid token response from backend");
         return;
       }
 
-      // 💾 STORE TOKENS
+      // STORE TOKENS
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
 
       console.log("ACCESS TOKEN:", access);
 
+      const profileRes = await axios.get(
+        "http://127.0.0.1:8000/api/users/profile/",
+        {
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        }
+      );
+
       alert("Login successful");
 
-      // 🚀 NAVIGATE TO HOME
-      navigate("/home");
+      if (isProfileComplete(profileRes.data)) {
+        navigate("/home");
+      } else {
+        navigate("/profile?setup=1");
+      }
 
     } catch (err) {
       console.log("LOGIN ERROR:", err.response?.data || err.message);
@@ -64,7 +84,7 @@ export default function Login() {
   return (
     <div style={styles.bg}>
       <div style={styles.card}>
-        <h1 style={styles.title}>🌌 Travel System</h1>
+        <h1 style={styles.title}>Travel System</h1>
         <p style={styles.subtitle}>
           Sign in to explore every part of Nepal
         </p>
@@ -109,39 +129,39 @@ export default function Login() {
   );
 }
 
-// 🎨 STYLES (unchanged)
 const styles = {
   bg: {
-    height: "100vh",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "radial-gradient(circle at top, #1a1a1a, #000000)",
-    fontFamily: "Arial",
+    padding: "24px",
+    background: "linear-gradient(135deg, #f6efe6 0%, #e8f1ff 100%)",
+    fontFamily: "'Poppins', 'Segoe UI', sans-serif",
   },
 
   card: {
-    width: "360px",
-    padding: "35px",
-    borderRadius: "14px",
-    background: "rgba(20,20,20,0.85)",
-    boxShadow: "0 0 25px rgba(0,255,200,0.15)",
-    border: "1px solid rgba(0,255,200,0.15)",
+    width: "100%",
+    maxWidth: "390px",
+    padding: "28px",
+    borderRadius: "16px",
+    background: "#ffffff",
+    border: "1px solid #dbe4f0",
+    boxShadow: "0 10px 30px rgba(20, 40, 80, 0.10)",
     textAlign: "center",
-    color: "#ffffff",
-    backdropFilter: "blur(12px)",
+    color: "#1f2a44",
   },
 
   title: {
-    fontSize: "24px",
-    marginBottom: "5px",
-    color: "#00ffc3",
-    textShadow: "0 0 10px rgba(0,255,195,0.5)",
+    fontSize: "26px",
+    fontWeight: "700",
+    margin: "0 0 6px",
+    color: "#183b66",
   },
 
   subtitle: {
-    fontSize: "13px",
-    opacity: 0.7,
+    fontSize: "14px",
+    color: "#5f6f89",
     marginBottom: "20px",
   },
 
@@ -152,36 +172,36 @@ const styles = {
   },
 
   input: {
-    padding: "12px",
-    borderRadius: "8px",
-    border: "1px solid #333",
-    background: "#111",
-    color: "white",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1px solid #cdd8ea",
+    background: "#f9fbff",
+    color: "#1f2a44",
     outline: "none",
     fontSize: "14px",
   },
 
   button: {
+    marginTop: "2px",
     padding: "12px",
-    borderRadius: "8px",
+    borderRadius: "10px",
     border: "none",
-    background: "linear-gradient(90deg, #00ffc3, #00a6ff)",
-    color: "black",
-    fontWeight: "bold",
+    background: "#2f6fed",
+    color: "#ffffff",
+    fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 0 15px rgba(0,255,200,0.3)",
   },
 
   link: {
-    marginTop: "12px",
+    marginTop: "14px",
     fontSize: "13px",
-    color: "#00ffc3",
+    color: "#2f6fed",
     cursor: "pointer",
   },
 
   footer: {
-    marginTop: "15px",
-    fontSize: "11px",
-    opacity: 0.5,
+    marginTop: "14px",
+    fontSize: "12px",
+    color: "#7a879c",
   },
 };

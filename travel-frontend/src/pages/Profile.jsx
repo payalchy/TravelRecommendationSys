@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Profile() {
   const [username, setUsername] = useState("");
@@ -13,14 +13,17 @@ export default function Profile() {
   const [travelStyles, setTravelStyles] = useState([]);
   const [selected, setSelected] = useState([]);
 
-  // ⭐ HISTORY ADDED
+  //  HISTORY ADDED
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [formError, setFormError] = useState("");
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isSetupMode = searchParams.get("setup") === "1";
 
   // ================= FETCH PROFILE =================
   const fetchProfile = async () => {
@@ -107,6 +110,12 @@ export default function Profile() {
 
   // ================= SAVE PROFILE =================
   const saveProfile = async () => {
+    if (!selected.length) {
+      setFormError("Please select at least one travel style.");
+      return;
+    }
+
+    setFormError("");
     setLoading(true);
 
     try {
@@ -127,9 +136,14 @@ export default function Profile() {
         }
       );
 
-      navigate("/home");
+      if (isSetupMode) {
+        navigate("/home?onboarding=1");
+      } else {
+        navigate("/home");
+      }
     } catch (err) {
       console.log("Save error:", err.response?.data || err.message);
+      setFormError("Unable to save profile. Please check your values and try again.");
     } finally {
       setLoading(false);
     }
@@ -143,9 +157,9 @@ export default function Profile() {
     <div style={styles.page}>
       {/* LEFT SIDE */}
       <div style={styles.left}>
-        <div style={styles.avatar}>✈️</div>
+        <div style={styles.avatar}>Profile</div>
 
-        {/* 👇 CLICK USERNAME FOR HISTORY */}
+        {/*  CLICK USERNAME FOR HISTORY */}
         <h2 style={styles.name} onClick={fetchHistory}>
           {username || "Guest"}
         </h2>
@@ -153,14 +167,21 @@ export default function Profile() {
         <p style={styles.email}>{email}</p>
 
         <div style={styles.cardSmall}>
-          <p>🌍 Travel Profile</p>
+          <p> Travel Profile</p>
           <p>Customize your journey</p>
         </div>
       </div>
 
       {/* RIGHT SIDE */}
       <div style={styles.right}>
-        <h1 style={styles.title}>Your Travel Preferences</h1>
+        <h1 style={styles.title}>
+          {isSetupMode ? "Set Your Travel Preferences" : "Update Your Travel Preferences"}
+        </h1>
+        <p style={styles.subtitle}>
+          {isSetupMode
+            ? "Complete this once to continue to Home. You can update this later anytime from Profile settings."
+            : "You can update your preferences anytime and save changes."}
+        </p>
 
         <div style={styles.card}>
           <label>Budget (NPR)</label>
@@ -208,8 +229,8 @@ export default function Profile() {
                 style={{
                   ...styles.tag,
                   background: selected.includes(t.id)
-                    ? "#00c896"
-                    : "#222",
+                    ? "#2f6fed"
+                    : "#7a879c",
                 }}
               >
                 {t.name}
@@ -219,8 +240,10 @@ export default function Profile() {
         </div>
 
         <button onClick={saveProfile} style={styles.button}>
-          {loading ? "Saving..." : "Save Profile"}
+          {loading ? "Saving..." : isSetupMode ? "Save And Continue" : "Save "}
         </button>
+
+        {formError && <p style={styles.errorText}>{formError}</p>}
       </div>
 
       {/* ================= HISTORY MODAL ================= */}
@@ -228,7 +251,7 @@ export default function Profile() {
         <div style={styles.modal}>
           <div style={styles.modalBox}>
             <div style={styles.modalHeader}>
-              <h3>📜 Travel History</h3>
+              <h3>Travel History</h3>
               <button onClick={() => setShowHistory(false)}>
                 Close
               </button>
@@ -240,10 +263,10 @@ export default function Profile() {
               ) : (
                 history.map((h) => (
                   <div key={h.id} style={styles.historyCard}>
-                    <p>💰 Budget: {h.budget}</p>
-                    <p>⏳ Duration: {h.duration}</p>
-                    <p>🌤 Season: {h.season}</p>
-                    <p>🏷 Styles: {h.travel_styles}</p>
+                    <p> Budget: {h.budget}</p>
+                    <p> Duration: {h.duration}</p>
+                    <p> Season: {h.season}</p>
+                    <p> Styles: {h.travel_styles}</p>
                   </div>
                 ))
               )}
@@ -255,64 +278,79 @@ export default function Profile() {
   );
 }
 
-/* ================= STYLES (YOUR SAME DESIGN + ADDITION) ================= */
+/* ================= STYLES ================= */
 const styles = {
   page: {
     display: "flex",
+    flexWrap: "wrap",
     minHeight: "100vh",
-    background: "#0b0f19",
-    color: "white",
-    fontFamily: "sans-serif",
+    background: "#f7f9fc",
+    color: "#1f2a44",
+    fontFamily: "'Poppins', 'Segoe UI', sans-serif",
   },
 
   left: {
-    width: "30%",
-    background: "linear-gradient(180deg,#111827,#0b0f19)",
+    width: "32%",
+    minWidth: "280px",
+    background: "#ffffff",
+    borderRight: "1px solid #e2e8f4",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "40px",
+    padding: "32px 24px",
   },
 
   right: {
-    width: "70%",
-    padding: "40px",
+    flex: 1,
+    minWidth: "320px",
+    padding: "32px 24px",
   },
 
   avatar: {
     fontSize: "60px",
-    marginBottom: "10px",
+    marginBottom: "12px",
   },
 
   name: {
     fontSize: "22px",
-    marginBottom: "5px",
+    margin: "0 0 6px",
     cursor: "pointer",
-    color: "#00c896",
+    color: "#183b66",
   },
 
   email: {
     fontSize: "14px",
-    color: "#aaa",
+    color: "#5f6f89",
   },
 
   cardSmall: {
     marginTop: "20px",
-    padding: "12px",
-    background: "#111827",
+    padding: "12px 14px",
+    background: "#f2f7ff",
+    border: "1px solid #d5e2fb",
     borderRadius: "10px",
     textAlign: "center",
-    color: "#aaa",
+    color: "#42536f",
   },
 
   title: {
     fontSize: "26px",
-    marginBottom: "20px",
+    color: "#1d3557",
+    marginBottom: "10px",
+  },
+
+  subtitle: {
+    color: "#5f6f89",
+    marginTop: "0",
+    marginBottom: "18px",
+    fontSize: "14px",
   },
 
   card: {
-    background: "#111827",
+    background: "#ffffff",
+    border: "1px solid #dbe4f0",
+    boxShadow: "0 6px 18px rgba(24, 59, 102, 0.08)",
     padding: "15px",
     borderRadius: "12px",
     marginBottom: "15px",
@@ -321,11 +359,12 @@ const styles = {
   input: {
     width: "100%",
     marginTop: "8px",
-    padding: "10px",
-    borderRadius: "8px",
-    border: "none",
-    background: "#1f2937",
-    color: "white",
+    padding: "10px 12px",
+    borderRadius: "10px",
+    border: "1px solid #cdd8ea",
+    background: "#f9fbff",
+    color: "#1f2a44",
+    outline: "none",
   },
 
   tags: {
@@ -336,10 +375,11 @@ const styles = {
   },
 
   tag: {
-    padding: "6px 12px",
+    padding: "7px 12px",
     borderRadius: "20px",
     cursor: "pointer",
     fontSize: "13px",
+    color: "#ffffff",
   },
 
   button: {
@@ -347,14 +387,21 @@ const styles = {
     padding: "12px",
     border: "none",
     borderRadius: "10px",
-    background: "#00c896",
-    color: "black",
-    fontWeight: "bold",
+    background: "#2f6fed",
+    color: "#ffffff",
+    fontWeight: "600",
     cursor: "pointer",
   },
 
+  errorText: {
+    color: "#c0392b",
+    marginTop: "12px",
+    marginBottom: "0",
+    textAlign: "center",
+  },
+
   loading: {
-    color: "white",
+    color: "#1f2a44",
     textAlign: "center",
     marginTop: "50px",
   },
@@ -366,17 +413,19 @@ const styles = {
     left: 0,
     width: "100%",
     height: "100%",
-    background: "rgba(0,0,0,0.7)",
+    background: "rgba(16, 24, 40, 0.45)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    padding: "16px",
   },
 
   modalBox: {
-    background: "#111827",
+    background: "#ffffff",
+    border: "1px solid #dbe4f0",
     padding: "20px",
     borderRadius: "12px",
-    width: "420px",
+    width: "min(520px, 100%)",
     maxHeight: "80vh",
     overflowY: "auto",
   },
@@ -384,6 +433,7 @@ const styles = {
   modalHeader: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: "10px",
   },
 
@@ -392,7 +442,8 @@ const styles = {
   },
 
   historyCard: {
-    background: "#1f2937",
+    background: "#f2f7ff",
+    border: "1px solid #d5e2fb",
     padding: "10px",
     borderRadius: "10px",
     marginBottom: "10px",

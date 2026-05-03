@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import Destinations from "./pages/Destinations";
 import Profile from "./pages/Profile";
 import PackageDetail from "./pages/PackageDetail";
 import ProtectedRoute from "./pages/ProtectedRoute";
@@ -31,6 +32,15 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/destinations"
+          element={
+            <ProtectedRoute>
+              <Destinations />
             </ProtectedRoute>
           }
         />

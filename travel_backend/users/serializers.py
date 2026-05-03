@@ -69,3 +69,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'preferred_travel_style',
             'preferred_travel_style_ids'
         ]
+
+    def validate(self, attrs):
+        styles_payload = attrs.get("preferred_travel_style")
+        if styles_payload is not None and len(styles_payload) == 0:
+            raise serializers.ValidationError(
+                {"preferred_travel_style_ids": "Select at least one travel style."}
+            )
+        return attrs

@@ -41,6 +41,44 @@ def convert_styles_to_weights(profile):
     return weights
 
 
+def _safe_float(value, default=None):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_request_location(request):
+    payload = request.data if isinstance(request.data, dict) else {}
+
+    latitude = _safe_float(payload.get("user_latitude"))
+    longitude = _safe_float(payload.get("user_longitude"))
+
+    if latitude is None and longitude is None:
+        return None, None
+
+    if latitude is None or longitude is None:
+        return None, "Both user_latitude and user_longitude are required together."
+
+    if latitude < -90 or latitude > 90:
+        return None, "user_latitude must be between -90 and 90."
+
+    if longitude < -180 or longitude > 180:
+        return None, "user_longitude must be between -180 and 180."
+
+    return (latitude, longitude), None
+
+
+def _coerce_preferred_province(request):
+    payload = request.data if isinstance(request.data, dict) else {}
+    province = payload.get("preferred_province")
+    if province is None:
+        return None
+
+    normalized = str(province).strip()
+    return normalized or None
+
+
 # ---------------- ADMIN DASHBOARD ----------------
 
 @staff_member_required
@@ -78,6 +116,16 @@ class RecommendationAPIView(APIView):
         except:
             return Response({"error": "UserProfile not found"}, status=404)
 
+        request_location, location_error = _coerce_request_location(request)
+        if location_error:
+            return Response({"error": location_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        preferred_province = _coerce_preferred_province(request)
+
+        profile_lat = float(profile.latitude) if profile.latitude is not None else 27.7172
+        profile_lon = float(profile.longitude) if profile.longitude is not None else 85.3240
+        resolved_lat, resolved_lon = request_location if request_location else (profile_lat, profile_lon)
+
         # ---------------- USER CONTEXT FROM PROFILE ----------------
         user_context = {
             "budget": profile.budget,
@@ -88,8 +136,8 @@ class RecommendationAPIView(APIView):
                 if profile.preferred_travel_style.exists()
                 else ""
             ),
-            "user_latitude": float(profile.latitude) if profile.latitude is not None else 27.7172,
-            "user_longitude": float(profile.longitude) if profile.longitude is not None else 85.3240,
+            "user_latitude": resolved_lat,
+            "user_longitude": resolved_lon,
         }
 
         # ---------------- DESTINATION PREFERENCES (AUTO) ----------------
@@ -133,6 +181,10 @@ class RecommendationAPIView(APIView):
         # ---------------- DATA ----------------
         packages = TravelPackage.objects.select_related("start_location", "end_location").all()
         destinations = Destination.objects.all()
+
+        if preferred_province:
+            packages = packages.filter(end_location__province__iexact=preferred_province)
+            destinations = destinations.filter(province__iexact=preferred_province)
 
         # ---------------- PACKAGE RANKING ----------------
         ranked = recommend_packages(
@@ -219,11 +271,30 @@ class RecommendationAPIView(APIView):
             {
                 "package_count": len(data),
                 "destination_count": len(destination_data),
+                "used_user_location": {
+                    "latitude": resolved_lat,
+                    "longitude": resolved_lon,
+                    "source": "request" if request_location else "profile",
+                },
                 "package_results": data,
                 "destination_results": destination_data,
             },
             status=status.HTTP_200_OK,
         )
+
+
+class DestinationProvinceListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        provinces = (
+            Destination.objects.exclude(province__isnull=True)
+            .exclude(province__exact="")
+            .values_list("province", flat=True)
+            .distinct()
+            .order_by("province")
+        )
+        return Response({"provinces": list(provinces)}, status=status.HTTP_200_OK)
 
 
 # ---------------- GEOCODE API ----------------

@@ -90,7 +90,7 @@ export default function Register() {
           onClick={() => navigate("/")}
           style={styles.link}
         >
-          Already have an account? <span style={{ color: "#00ffc3" }}>Login</span>
+          Already have an account? <span style={{ color: "#2f6fed" }}>Login</span>
         </p>
       </div>
     </div>
@@ -99,36 +99,37 @@ export default function Register() {
 
 const styles = {
   bg: {
-    height: "100vh",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "radial-gradient(circle at top, #1a1a1a, #000)",
-    fontFamily: "Arial",
+    padding: "24px",
+    background: "linear-gradient(135deg, #f6efe6 0%, #e8f1ff 100%)",
+    fontFamily: "'Poppins', 'Segoe UI', sans-serif",
   },
 
   card: {
-    width: "380px",
-    padding: "35px",
+    width: "100%",
+    maxWidth: "400px",
+    padding: "28px",
     borderRadius: "16px",
-    background: "rgba(20,20,20,0.9)",
-    boxShadow: "0 0 30px rgba(0,255,200,0.15)",
-    border: "1px solid rgba(0,255,200,0.2)",
+    background: "#ffffff",
+    boxShadow: "0 10px 30px rgba(20, 40, 80, 0.10)",
+    border: "1px solid #dbe4f0",
     textAlign: "center",
-    color: "white",
-    backdropFilter: "blur(12px)",
+    color: "#1f2a44",
   },
 
   title: {
-    fontSize: "24px",
-    color: "#00ffc3",
-    marginBottom: "5px",
-    textShadow: "0 0 10px rgba(0,255,195,0.4)",
+    fontSize: "26px",
+    color: "#183b66",
+    margin: "0 0 6px",
+    fontWeight: "700",
   },
 
   subtitle: {
-    fontSize: "13px",
-    opacity: 0.7,
+    fontSize: "14px",
+    color: "#5f6f89",
     marginBottom: "20px",
   },
 
@@ -139,30 +140,30 @@ const styles = {
   },
 
   input: {
-    padding: "12px",
-    borderRadius: "8px",
-    border: "1px solid #333",
-    background: "#0f0f0f",
-    color: "white",
+    padding: "12px 14px",
+    borderRadius: "10px",
+    border: "1px solid #cdd8ea",
+    background: "#f9fbff",
+    color: "#1f2a44",
     outline: "none",
     fontSize: "14px",
   },
 
   button: {
+    marginTop: "2px",
     padding: "12px",
-    borderRadius: "8px",
+    borderRadius: "10px",
     border: "none",
-    background: "linear-gradient(90deg, #00ffc3, #00a6ff)",
-    color: "black",
-    fontWeight: "bold",
+    background: "#2f6fed",
+    color: "#ffffff",
+    fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 0 15px rgba(0,255,200,0.3)",
   },
 
   link: {
-    marginTop: "15px",
+    marginTop: "14px",
     fontSize: "13px",
-    color: "#aaa",
+    color: "#5f6f89",
     cursor: "pointer",
   },
 };
