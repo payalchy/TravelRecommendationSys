@@ -27,12 +27,12 @@ export default function Register() {
         }
       );
 
-      alert("Registered successfully 🚀");
+      alert("Registered successfully!!");
       navigate("/");
 
     } catch (err) {
       console.log(err);
-      alert("Registration failed ❌");
+      alert("Registration failed !! Please try again.");
     } finally {
       setLoading(false);
     }
