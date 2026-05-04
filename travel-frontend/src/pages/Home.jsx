@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export default function Home() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // =====================
   // FETCH RECOMMENDATIONS
   // =====================
-  const fetchRecommendations = async () => {
+  const fetchPackageRecommendations = async () => {
     setLoading(true);
     setError("");
 
@@ -69,11 +71,11 @@ export default function Home() {
         !p?.preferred_duration ||
         !p?.preferred_travel_style?.length
       ) {
-        navigate("/profile");
+        navigate("/profile?setup=1");
         return;
       }
 
-      fetchRecommendations();
+      fetchPackageRecommendations();
     } catch {
       navigate("/profile");
     }
@@ -83,15 +85,28 @@ export default function Home() {
     checkProfile();
   }, []);
 
+  useEffect(() => {
+    if (searchParams.get("onboarding") === "1") {
+      setShowOnboardingBanner(true);
+      navigate("/home", { replace: true });
+    }
+  }, [navigate, searchParams]);
+
   return (
     <div style={styles.page}>
       {/* ================= NAVBAR ================= */}
       <div style={styles.navbar}>
-        <h2 style={styles.logo}>🌍 Travel Explorer</h2>
+        <h2 style={styles.logo}>Travel Explorer</h2>
 
         <div style={styles.navLinks}>
           <span style={styles.navItem}>Home</span>
           <span style={styles.navItem}>Packages</span>
+          <span
+            style={styles.recommendationNavItem}
+            onClick={() => navigate("/destinations")}
+          >
+            Destination Recommendation
+          </span>
           <span style={styles.navItem}>Wishlist</span>
 
           {/* PROFILE (FIXED from Payal) */}
@@ -114,10 +129,33 @@ export default function Home() {
           onChange={(e) => setSearch(e.target.value)}
           style={styles.search}
         />
+
+        <button
+          type="button"
+          onClick={() => navigate("/destinations")}
+          style={styles.refreshButton}
+        >
+          Get Destination Recommendation
+        </button>
       </div>
 
       {/* ERROR */}
       {error && <p style={styles.error}>{error}</p>}
+
+      {showOnboardingBanner && (
+        <div style={styles.onboardingBanner}>
+          <p style={styles.onboardingText}>
+            Profile setup completed. You can update your travel preferences anytime from Profile settings.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowOnboardingBanner(false)}
+            style={styles.bannerCloseButton}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* ================= CONTENT ================= */}
       <div style={styles.container}>
@@ -149,11 +187,11 @@ export default function Home() {
 
                   <div style={styles.overlay}>
                     <h3>{pkg.name}</h3>
-                    <p>📍 {pkg.end_location}</p>
+                    <p>Location: {pkg.end_location}</p>
 
                     <div style={styles.badges}>
-                      <span>💰 {pkg.budget}</span>
-                      <span>⏳ {pkg.duration_days} days</span>
+                      <span>Budget: {pkg.budget}</span>
+                      <span>Duration: {pkg.duration_days} days</span>
                     </div>
                   </div>
                 </div>
@@ -168,93 +206,165 @@ export default function Home() {
 /* ===================== STYLES ===================== */
 const styles = {
   page: {
-    background: "#0f0f0f",
     minHeight: "100vh",
-    color: "white",
-    fontFamily: "sans-serif",
+    background: "#f7f9fc",
+    color: "#1f2a44",
+    fontFamily: "'Poppins', 'Segoe UI', sans-serif",
   },
 
   navbar: {
     display: "flex",
     justifyContent: "space-between",
-    padding: "20px 40px",
-    borderBottom: "1px solid #222",
-    background: "#111",
+    alignItems: "center",
+    padding: "14px 24px",
+    borderBottom: "1px solid #e2e8f4",
+    background: "#ffffff",
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
   },
 
   logo: {
-    fontWeight: "bold",
+    margin: 0,
+    fontSize: "21px",
+    fontWeight: "700",
+    color: "#1d3557",
   },
 
   navLinks: {
     display: "flex",
-    gap: "25px",
+    gap: "16px",
     alignItems: "center",
+    flexWrap: "wrap",
   },
 
   navItem: {
-    color: "#aaa",
+    color: "#52627c",
     cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "500",
+  },
+
+  recommendationNavItem: {
+    color: "#ffffff",
+    cursor: "pointer",
+    border: "1px solid #2f6fed",
+    background: "#2f6fed",
+    padding: "7px 10px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    fontWeight: "600",
   },
 
   profile: {
-    color: "#fff",
+    color: "#2f6fed",
     cursor: "pointer",
-    padding: "6px 12px",
-    border: "1px solid #4caf50",
+    padding: "6px 10px",
+    border: "1px solid #bcd0f6",
     borderRadius: "8px",
-    transition: "0.3s",
+    fontWeight: "600",
+    background: "#f2f7ff",
   },
 
   hero: {
     textAlign: "center",
-    padding: "60px 20px",
+    padding: "34px 16px 20px",
   },
 
   title: {
-    fontSize: "36px",
-    marginBottom: "20px",
+    fontSize: "34px",
+    margin: "0 0 14px",
+    color: "#1d3557",
+    letterSpacing: "0.3px",
   },
 
   search: {
-    padding: "12px",
-    width: "320px",
+    width: "min(420px, 92%)",
+    padding: "12px 14px",
     borderRadius: "10px",
+    border: "1px solid #cdd8ea",
+    background: "#ffffff",
+    color: "#1f2a44",
+    fontSize: "14px",
+    outline: "none",
+  },
+
+  refreshButton: {
+    marginTop: "12px",
     border: "none",
-    background: "#222",
-    color: "white",
+    background: "#2f6fed",
+    color: "#ffffff",
+    borderRadius: "10px",
+    padding: "10px 16px",
+    fontWeight: "600",
+    cursor: "pointer",
   },
 
   error: {
-    color: "red",
+    color: "#c0392b",
     textAlign: "center",
+    margin: "8px 0",
+    fontWeight: "500",
+  },
+
+  onboardingBanner: {
+    margin: "10px auto 18px",
+    width: "min(940px, calc(100% - 24px))",
+    background: "#fff7e6",
+    border: "1px solid #f2d29c",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    padding: "12px 14px",
+    flexWrap: "wrap",
+  },
+
+  onboardingText: {
+    margin: 0,
+    color: "#6a4c1f",
+    fontSize: "14px",
+  },
+
+  bannerCloseButton: {
+    border: "1px solid #d9b26a",
+    background: "#fff",
+    color: "#6a4c1f",
+    borderRadius: "8px",
+    padding: "6px 10px",
+    cursor: "pointer",
+    fontWeight: "600",
   },
 
   container: {
-    padding: "20px 40px",
+    padding: "16px 24px 30px",
   },
 
   sectionTitle: {
-    marginBottom: "20px",
+    marginBottom: "14px",
+    color: "#1d3557",
   },
 
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-    gap: "20px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+    gap: "16px",
   },
 
   card: {
-    borderRadius: "15px",
+    borderRadius: "14px",
     overflow: "hidden",
     cursor: "pointer",
     position: "relative",
-    transition: "0.3s",
+    border: "1px solid #dde5f2",
+    background: "#fff",
+    boxShadow: "0 6px 18px rgba(24, 59, 102, 0.08)",
   },
 
   image: {
     width: "100%",
-    height: "260px",
+    height: "220px",
     objectFit: "cover",
   },
 
@@ -262,14 +372,15 @@ const styles = {
     position: "absolute",
     bottom: 0,
     width: "100%",
-    padding: "15px",
-    background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)",
+    padding: "12px",
+    color: "#fff",
+    background: "linear-gradient(to top, rgba(23, 33, 56, 0.82), rgba(23, 33, 56, 0.12))",
   },
 
   badges: {
     display: "flex",
     gap: "10px",
     fontSize: "12px",
-    marginTop: "5px",
+    marginTop: "6px",
   },
 };

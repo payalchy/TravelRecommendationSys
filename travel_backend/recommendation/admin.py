@@ -113,6 +113,65 @@ class DestinationAdmin(admin.ModelAdmin):
     list_per_page = 50
     readonly_fields = ("coordinate_tools",)
 
+    def _fetch_coordinates(self, destination):
+        if not destination.pName:
+            return None
+
+        if destination.province:
+            query = f"{destination.pName}, {destination.province}, Nepal"
+        else:
+            query = f"{destination.pName}, Nepal"
+
+        params = urlencode({"q": query, "format": "json", "limit": 1})
+        url = f"https://nominatim.openstreetmap.org/search?{params}"
+        request_obj = Request(url, headers={"User-Agent": "travel-backend-admin/1.0"})
+
+        try:
+            with urlopen(request_obj, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except Exception:
+            return None
+
+        if not payload:
+            return None
+
+        first = payload[0]
+        try:
+            return float(first.get("lat")), float(first.get("lon"))
+        except (TypeError, ValueError):
+            return None
+
+    def _find_saved_coordinates(self, destination):
+        if not destination.pName:
+            return None
+
+        queryset = Destination.objects.exclude(pk=destination.pk).filter(
+            pName__iexact=destination.pName,
+            latitude__isnull=False,
+            longitude__isnull=False,
+        )
+
+        if destination.province:
+            same_province = queryset.filter(province__iexact=destination.province).first()
+            if same_province:
+                return same_province.latitude, same_province.longitude
+
+        match = queryset.first()
+        if match:
+            return match.latitude, match.longitude
+        return None
+
+    def _resolve_coordinates(self, destination):
+        saved_coords = self._find_saved_coordinates(destination)
+        if saved_coords:
+            return saved_coords, "saved"
+
+        fetched_coords = self._fetch_coordinates(destination)
+        if fetched_coords:
+            return fetched_coords, "geocoded"
+
+        return None, None
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -134,29 +193,53 @@ class DestinationAdmin(admin.ModelAdmin):
             self.message_user(request, "Destination name is required for geocoding.", level=messages.ERROR)
             return redirect(reverse("admin:recommendation_destination_change", args=[destination.id]))
 
-        query = f"{destination.pName}, Nepal"
-        params = urlencode({"q": query, "format": "json", "limit": 1})
-        url = f"https://nominatim.openstreetmap.org/search?{params}"
-        request_obj = Request(url, headers={"User-Agent": "travel-backend-admin/1.0"})
+        if destination.latitude is not None and destination.longitude is not None:
+            self.message_user(request, "Coordinates are already saved for this destination.", level=messages.INFO)
+            return redirect(reverse("admin:recommendation_destination_change", args=[destination.id]))
 
-        try:
-            with urlopen(request_obj, timeout=10) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except Exception:
+        resolved_coordinates, source = self._resolve_coordinates(destination)
+        if not resolved_coordinates:
             self.message_user(request, "Could not fetch coordinates right now.", level=messages.ERROR)
             return redirect(reverse("admin:recommendation_destination_change", args=[destination.id]))
 
-        if not payload:
-            self.message_user(request, "No Nepal location found for this destination.", level=messages.WARNING)
-            return redirect(reverse("admin:recommendation_destination_change", args=[destination.id]))
-
-        first = payload[0]
-        destination.latitude = float(first.get("lat"))
-        destination.longitude = float(first.get("lon"))
+        latitude, longitude = resolved_coordinates
+        destination.latitude = latitude
+        destination.longitude = longitude
         destination.save(update_fields=["latitude", "longitude"])
 
-        self.message_user(request, "Coordinates updated successfully.", level=messages.SUCCESS)
+        if source == "saved":
+            self.message_user(request, "Saved coordinates reused successfully.", level=messages.SUCCESS)
+        else:
+            self.message_user(request, "Coordinates updated successfully.", level=messages.SUCCESS)
         return redirect(reverse("admin:recommendation_destination_change", args=[destination.id]))
+
+    def save_model(self, request, obj, form, change):
+        latitude_missing = obj.latitude is None
+        longitude_missing = obj.longitude is None
+
+        if obj.pName and (latitude_missing or longitude_missing):
+            resolved_coordinates, source = self._resolve_coordinates(obj)
+            if resolved_coordinates:
+                latitude, longitude = resolved_coordinates
+                if latitude_missing:
+                    obj.latitude = latitude
+                if longitude_missing:
+                    obj.longitude = longitude
+
+                if source == "saved":
+                    self.message_user(
+                        request,
+                        "Existing saved coordinates were reused automatically.",
+                        level=messages.INFO,
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        "Coordinates were auto-filled and saved.",
+                        level=messages.INFO,
+                    )
+
+        super().save_model(request, obj, form, change)
 
     @admin.display(description="Coordinate Tools")
     def coordinate_tools(self, obj):

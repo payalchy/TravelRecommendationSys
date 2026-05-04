@@ -76,7 +76,7 @@ export default function PackageDetail() {
         <div style={styles.overlay}>
           <h1 style={styles.title}>{pkg.name}</h1>
           <p style={styles.subtitle}>
-            📍 {pkg.start_location} → {pkg.end_location}
+            {pkg.start_location} → {pkg.end_location}
           </p>
         </div>
       </div>
@@ -85,19 +85,19 @@ export default function PackageDetail() {
       <div style={styles.content}>
         {/* DESCRIPTION */}
         <div style={styles.card}>
-          <h2>📄 Description</h2>
+          <h2> Description</h2>
           <p>{pkg.description}</p>
 
           <div style={styles.infoRow}>
-            <span>💰 {pkg.budget}</span>
-            <span>⏳ {pkg.duration_days} days</span>
-            <span>📊 {pkg.final_score}</span>
+            <span> {pkg.budget}</span>
+            <span> {pkg.duration_days} days</span>
+            <span> {pkg.final_score}</span>
           </div>
         </div>
 
         {/* ITINERARY */}
         <div style={styles.card}>
-          <h2>🗓 Itinerary</h2>
+          <h2>Itinerary</h2>
 
           {pkg.itinerary?.length > 0 ? (
             pkg.itinerary.map((day, i) => (
