@@ -9,10 +9,12 @@ from .serializers import (
 )
 
 
-
+# =========================
 # REGISTER
+# =========================
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -26,7 +28,9 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+# =========================
 # PROFILE 
+# =========================
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -49,7 +53,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         # reload DB 
         instance.refresh_from_db()
 
-        # convert travel styles  to string 
+        # convert travel styles → string 
         travel_styles = ", ".join(
             [t.name for t in instance.preferred_travel_style.all()]
         )

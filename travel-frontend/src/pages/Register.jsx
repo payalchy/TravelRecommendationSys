@@ -27,12 +27,12 @@ export default function Register() {
         }
       );
 
-      alert("Registered successfully ");
+      alert("Registered successfully!!");
       navigate("/");
 
     } catch (err) {
       console.log(err);
-      alert("Registration failed ");
+      alert("Registration failed !! Please try again.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ export default function Register() {
   return (
     <div style={styles.bg}>
       <div style={styles.card}>
-        <h1 style={styles.title}> Create Account</h1>
+        <h1 style={styles.title}>🌍 Create Account</h1>
         <p style={styles.subtitle}>
           Join TravelAI and explore smarter travel
         </p>
@@ -82,7 +82,7 @@ export default function Register() {
             disabled={loading}
             style={styles.button}
           >
-            {loading ? "Creating account..." : "Register "}
+            {loading ? "Creating account..." : "Register 🚀"}
           </button>
         </form>
 
