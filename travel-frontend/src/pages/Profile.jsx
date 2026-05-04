@@ -13,7 +13,7 @@ export default function Profile() {
   const [travelStyles, setTravelStyles] = useState([]);
   const [selected, setSelected] = useState([]);
 
-  // ⭐ HISTORY ADDED
+  //  HISTORY ADDED
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -145,7 +145,7 @@ export default function Profile() {
       <div style={styles.left}>
         <div style={styles.avatar}>✈️</div>
 
-        {/* 👇 CLICK USERNAME FOR HISTORY */}
+        {/*  CLICK USERNAME FOR HISTORY */}
         <h2 style={styles.name} onClick={fetchHistory}>
           {username || "Guest"}
         </h2>
