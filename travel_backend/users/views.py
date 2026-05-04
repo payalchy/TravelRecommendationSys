@@ -9,9 +9,8 @@ from .serializers import (
 )
 
 
-# =========================
+
 # REGISTER
-# =========================
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
@@ -27,9 +26,7 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# =========================
-# PROFILE (GET + UPDATE + HISTORY SAVE)
-# =========================
+# PROFILE 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -49,15 +46,15 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        # reload DB (important for ManyToMany)
+        # reload DB 
         instance.refresh_from_db()
 
-        # convert travel styles → string for history
+        # convert travel styles  to string 
         travel_styles = ", ".join(
             [t.name for t in instance.preferred_travel_style.all()]
         )
 
-        # SAVE HISTORY (THIS IS YOUR "HISTORY FEATURE")
+        # SAVE HISTORY 
         UserProfileHistory.objects.create(
             user=request.user,
             budget=instance.budget,
