@@ -169,7 +169,11 @@ export default function Destinations() {
       });
 
       const destinationResults = res.data?.destination_results || [];
-      setDestinations(destinationResults.slice(0, 5));
+      console.log("Destination Results:", destinationResults);
+      destinationResults.forEach((dest) => {
+        console.log(`${dest.name}: lat=${dest.latitude}, lng=${dest.longitude}`);
+      });
+      setDestinations(destinationResults);
     } catch {
       setError("Failed to fetch destination recommendations");
       setLocationStatus("Unable to fetch recommendations");
@@ -315,19 +319,40 @@ export default function Destinations() {
                 <div style={styles.rank}>{index + 1}</div>
                 <div style={styles.cardBody}>
                   <h3 style={styles.name}>{destination.name} ({destination.province})</h3>
-                  <p style={styles.meta}>Distance: {Number(destination.distance_km).toFixed(2)} km</p>
-                  <p style={styles.meta}>Final score: {Number(destination.final_score).toFixed(3)}</p>
-                  <p style={styles.meta}>Preference score: {Number(destination.preference_score).toFixed(3)}</p>
-                  {destination.latitude != null && destination.longitude != null && (
-                    <a
-                      href={`https://www.openstreetmap.org/?mlat=${Number(destination.latitude)}&mlon=${Number(destination.longitude)}#map=11/${Number(destination.latitude)}/${Number(destination.longitude)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={styles.mapLink}
-                    >
-                      View on map
-                    </a>
-                  )}
+
+                  <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap", alignItems: "center" }}>
+                    {destination.latitude != null && destination.longitude != null && destination.latitude !== 0 && destination.longitude !== 0 && (
+                      <>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&origin=${Number(latitudeInput)},${Number(longitudeInput)}&destination=${Number(destination.latitude)},${Number(destination.longitude)}&travelmode=driving`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            ...styles.mapLink,
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            borderRadius: "4px",
+                            background: "#2f6fed",
+                            color: "#fff",
+                            border: "1px solid #2f6fed",
+                            textDecoration: "none",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => console.log(`Opening map for ${destination.name}: ${destination.latitude},${destination.longitude}`)}
+                        >
+                          View in Map
+                        </a>
+                        <span style={{ fontSize: "11px", color: "#52627c" }}>
+                          ({destination.latitude.toFixed(4)}, {destination.longitude.toFixed(4)})
+                        </span>
+                      </>
+                    )}
+                    {(!destination.latitude || !destination.longitude || destination.latitude === 0 || destination.longitude === 0) && (
+                      <span style={{ fontSize: "11px", color: "#dc2626" }}>
+                        ⚠️ Coordinates not available for this destination
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))

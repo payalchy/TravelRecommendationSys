@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.text import Truncator
+from django.core.exceptions import ValidationError
 import json
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -113,14 +114,31 @@ class DestinationAdmin(admin.ModelAdmin):
     list_per_page = 50
     readonly_fields = ("coordinate_tools",)
 
+    fieldsets = (
+        ("Basic Information", {
+            "fields": ("pName", "province")
+        }),
+        ("Coordinates", {
+            "fields": ("latitude", "longitude", "coordinate_tools"),
+            "description": "Coordinates are automatically fetched from OpenStreetMap when you save. Click the button below to manually refetch."
+        }),
+        ("Travel Attributes", {
+            "fields": ("culture", "adventure", "wildlife", "sightseeing", "history")
+        }),
+        ("Additional Info", {
+            "fields": ("tags", "image")
+        }),
+    )
+
     def _fetch_coordinates(self, destination):
         if not destination.pName:
             return None
 
-        if destination.province:
-            query = f"{destination.pName}, {destination.province}, Nepal"
-        else:
-            query = f"{destination.pName}, Nepal"
+        # Skip province if it's just a number (likely an ID, not a real name)
+        query = destination.pName
+        if destination.province and not str(destination.province).isdigit():
+            query = f"{destination.pName}, {destination.province}"
+        query = f"{query}, Nepal"
 
         params = urlencode({"q": query, "format": "json", "limit": 1})
         url = f"https://nominatim.openstreetmap.org/search?{params}"
@@ -306,6 +324,36 @@ class PackageItineraryInline(admin.TabularInline):
     autocomplete_fields = ["destination"]
     can_delete = True
     ordering = ("day_number",)
+    fields = ('day_number', 'destination', 'description', 'image')
+    
+    def get_extra(self, request, obj=None, **kwargs):
+        """Allow extra rows based on package duration"""
+        if obj:
+            # Number of extra rows = remaining days not yet assigned
+            assigned_days = obj.itinerary.count()
+            remaining = max(0, obj.days - assigned_days)
+            return min(1, remaining)  # Show 1 extra row if days remain
+        return 0
+    
+    def formset_valid(self, formset):
+        """Validate that day count doesn't exceed package duration"""
+        package = formset.instance
+        day_numbers = []
+        
+        for form in formset.forms:
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                day_num = form.cleaned_data.get('day_number')
+                if day_num:
+                    day_numbers.append(day_num)
+        
+        # Check if any day exceeds package duration
+        if day_numbers and max(day_numbers) > package.days:
+            raise ValidationError(
+                f"Cannot add itinerary beyond package duration of {package.days} days. "
+                f"Maximum day number allowed: {package.days}"
+            )
+        
+        return super().formset_valid(formset)
 
 @admin.register(TravelPackage)
 class TravelPackageAdmin(admin.ModelAdmin):

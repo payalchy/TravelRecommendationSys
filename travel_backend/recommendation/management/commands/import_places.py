@@ -6,7 +6,7 @@ class Command(BaseCommand):
     help = 'Import places from Excel file'
 
     def handle(self, *args, **kwargs):
-        df = pd.read_excel('real_nepal_4000_destinations_final.xlsx')
+        df = pd.read_excel('nepal_destination_all.xlsx')
 
         for _, row in df.iterrows():
             Destination.objects.get_or_create(
