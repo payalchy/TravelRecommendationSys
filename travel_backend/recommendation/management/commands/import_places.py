@@ -8,7 +8,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         # Clear old destination data
         Destination.objects.all().delete()
-        
+ 
         df = pd.read_excel('nepal_destination_all.xlsx')
 
         for _, row in df.iterrows():

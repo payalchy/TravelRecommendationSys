@@ -22,7 +22,7 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    #  MUST BE POSITIVE (>0)
+    #  MUST BE POSITIVE 
     budget = models.FloatField(
         default=1.0,
         validators=[MinValueValidator(0.01)]

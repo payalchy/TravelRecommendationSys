@@ -202,6 +202,10 @@ class RecommendationAPIView(APIView):
         data = []
         for item in ranked:
             package = item.package
+            # Parse includes and excludes (stored as newline-separated text)
+            includes_list = [i.strip() for i in package.includes.split('\n') if i.strip()] if hasattr(package, 'includes') and package.includes else []
+            excludes_list = [e.strip() for e in package.excludes.split('\n') if e.strip()] if hasattr(package, 'excludes') and package.excludes else []
+            
             data.append(
                 {
                     "package_id": package.id,
@@ -215,11 +219,25 @@ class RecommendationAPIView(APIView):
                     "duration_days": int(package.days),
                     "start_location": package.start_location.pName if package.start_location else None,
                     "end_location": package.end_location.pName if package.end_location else None,
+                    "start_coords": {
+                        "lat": float(package.start_location.latitude),
+                        "lng": float(package.start_location.longitude),
+                    } if package.start_location and package.start_location.latitude and package.start_location.longitude else None,
+                    "end_coords": {
+                        "lat": float(package.end_location.latitude),
+                        "lng": float(package.end_location.longitude),
+                    } if package.end_location and package.end_location.latitude and package.end_location.longitude else None,
+                    "includes": includes_list,
+                    "excludes": excludes_list,
                     "itinerary": [
                         {
                             "day": i.day_number,
                             "destination": i.destination.pName,
                             "description": i.description,
+                            "coords": {
+                                "lat": float(i.destination.latitude),
+                                "lng": float(i.destination.longitude),
+                            } if i.destination.latitude and i.destination.longitude else None,
                         }
                         for i in package.itinerary.all()
                     ],

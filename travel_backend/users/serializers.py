@@ -26,7 +26,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 # =========================
-# TRAVEL STYLE SERIALIZER (IMPORTANT FIX)
+# TRAVEL STYLE SERIALIZER 
 # =========================
 class TravelStyleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,10 +42,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
 
-    #  return full objects (NOT just IDs)
+    #  return full objects 
     preferred_travel_style = TravelStyleSerializer(many=True, read_only=True)
 
-    # write-only field for updating (IDs from frontend)
+    # write-only field for updating 
     preferred_travel_style_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=TravelStyle.objects.all(),
