@@ -70,8 +70,9 @@ class Destination(models.Model):
                 
                 # Build query - include province if available
                 query = self.pName
-                if self.province and not self.province.isdigit():
-                    query = f"{self.pName}, {self.province}"
+                province = str(self.province).strip() if self.province is not None else ''
+                if province and not province.isdigit():
+                    query = f"{self.pName}, {province}"
                 query = f"{query}, Nepal"
                 
                 geocode_result = gmaps.geocode(query)
@@ -86,8 +87,9 @@ class Destination(models.Model):
         try:
             # Build query - skip province if it's just a number
             query = self.pName
-            if self.province and not self.province.isdigit():
-                query = f"{self.pName}, {self.province}"
+            province = str(self.province).strip() if self.province is not None else ''
+            if province and not province.isdigit():
+                query = f"{self.pName}, {province}"
             query = f"{query}, Nepal"
             
             params = urlencode({"q": query, "format": "json", "limit": 1})
