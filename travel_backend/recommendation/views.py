@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Destination, TravelPackage, PackageItinerary
-from .engine import recommend_destinations, recommend_packages
+from .engine import recommend_destinations_direct, recommend_packages
 
 
 # ---------------- HELPER FUNCTION ----------------
@@ -122,15 +122,25 @@ class RecommendationAPIView(APIView):
 
         preferred_province = _coerce_preferred_province(request)
 
+        # Extract constraints from request (optional overrides)
+        request_budget = _safe_float(request.data.get("budget"))
+        request_duration = _safe_float(request.data.get("duration"))
+        request_season = request.data.get("preferred_season")
+        
+        # Use request constraints if provided, otherwise use profile
+        user_budget = request_budget if request_budget is not None else profile.budget
+        user_duration = request_duration if request_duration is not None else profile.preferred_duration
+        user_season = request_season if request_season else None
+
         profile_lat = float(profile.latitude) if profile.latitude is not None else 27.7172
         profile_lon = float(profile.longitude) if profile.longitude is not None else 85.3240
         resolved_lat, resolved_lon = request_location if request_location else (profile_lat, profile_lon)
 
         # ---------------- USER CONTEXT FROM PROFILE ----------------
         user_context = {
-            "budget": profile.budget,
+            "budget": user_budget,
             "distance": 100,  # default fallback
-            "duration": profile.preferred_duration,
+            "duration": user_duration,
             "travel_type": (
                 profile.preferred_travel_style.first().name
                 if profile.preferred_travel_style.exists()
@@ -138,6 +148,7 @@ class RecommendationAPIView(APIView):
             ),
             "user_latitude": resolved_lat,
             "user_longitude": resolved_lon,
+            "preferred_season": user_season,
         }
 
         # ---------------- DESTINATION PREFERENCES (AUTO) ----------------
@@ -186,81 +197,26 @@ class RecommendationAPIView(APIView):
             packages = packages.filter(end_location__province__iexact=preferred_province)
             destinations = destinations.filter(province__iexact=preferred_province)
 
-        # ---------------- PACKAGE RANKING ----------------
-        ranked = recommend_packages(
-            user_context=user_context,
-            packages=packages,
-            k=k,
-            top_n=top_n,
-            preference_weights=preference_weights,
-            context_weights=context_weights,
-            alpha=alpha,
-            beta=beta,
-            gamma=gamma,
-        )
-
-        data = []
-        for item in ranked:
-            package = item.package
-            # Parse includes and excludes (stored as newline-separated text)
-            includes_list = [i.strip() for i in package.includes.split('\n') if i.strip()] if hasattr(package, 'includes') and package.includes else []
-            excludes_list = [e.strip() for e in package.excludes.split('\n') if e.strip()] if hasattr(package, 'excludes') and package.excludes else []
-            
-            data.append(
-                {
-                    "package_id": package.id,
-                    "name": package.name,
-                    "package_type": package.package_type,
-                    "transport_mode": package.transport_mode,
-                    "budget": float(package.budget),
-                    "image": request.build_absolute_uri(package.image.url) if package.image else None,
-                    "description": package.description,
-                    "computed_distance_km": round(item.computed_distance_km, 6),
-                    "duration_days": int(package.days),
-                    "start_location": package.start_location.pName if package.start_location else None,
-                    "end_location": package.end_location.pName if package.end_location else None,
-                    "start_coords": {
-                        "lat": float(package.start_location.latitude),
-                        "lng": float(package.start_location.longitude),
-                    } if package.start_location and package.start_location.latitude and package.start_location.longitude else None,
-                    "end_coords": {
-                        "lat": float(package.end_location.latitude),
-                        "lng": float(package.end_location.longitude),
-                    } if package.end_location and package.end_location.latitude and package.end_location.longitude else None,
-                    "includes": includes_list,
-                    "excludes": excludes_list,
-                    "itinerary": [
-                        {
-                            "day": i.day_number,
-                            "destination": i.destination.pName,
-                            "description": i.description,
-                            "coords": {
-                                "lat": float(i.destination.latitude),
-                                "lng": float(i.destination.longitude),
-                            } if i.destination.latitude and i.destination.longitude else None,
-                        }
-                        for i in package.itinerary.all()
-                    ],
-                    "cps": round(item.cps, 6),
-                    "distance_score": round(item.distance, 6),
-                    "cost_efficiency": round(item.cost_efficiency, 6),
-                    "time_efficiency": round(item.time_efficiency, 6),
-                    "final_score": round(item.final_score, 6),
-                }
-            )
-
-        # ---------------- DESTINATION RANKING ----------------
-        destination_ranked = recommend_destinations(
+        # NEW: Direct destination recommendations (6-Algorithm Pipeline)
+        # No longer using package-based recommendations
+        ranked = []  # Empty - not using packages anymore
+        
+        # Apply all 6 algorithms directly to destinations
+        destination_ranked = recommend_destinations_direct(
             user_destination_preferences=user_destination_preferences,
             user_context=user_context,
             destinations=destinations,
-            ranked_packages=ranked,
             destination_top_n=destination_top_n,
             destination_weights=destination_weights,
             destination_alpha=destination_alpha,
             destination_beta=destination_beta,
             destination_gamma=destination_gamma,
         )
+
+        # Legacy package ranking (kept for reference, not used)
+        # ranked = recommend_packages(...)
+        
+        data = []  # No package data in new direct recommendations
 
         destination_data = []
         for item in destination_ranked:
@@ -272,6 +228,7 @@ class RecommendationAPIView(APIView):
                     "province": destination.province,
                     "latitude": destination.latitude,
                     "longitude": destination.longitude,
+                    "image": destination.image,
                     "culture": destination.culture,
                     "adventure": destination.adventure,
                     "wildlife": destination.wildlife,
@@ -280,21 +237,27 @@ class RecommendationAPIView(APIView):
                     "distance_km": round(item.distance_km, 6),
                     "preference_score": round(item.preference_score, 6),
                     "geo_score": round(item.geo_score, 6),
-                    "package_support_score": round(item.package_support_score, 6),
+                    "attribute_alignment": round(item.package_support_score, 6),
                     "final_score": round(item.final_score, 6),
                 }
             )
 
         return Response(
             {
-                "package_count": len(data),
+                "recommendation_type": "direct_destinations_6_algorithm",
+                "pipeline": ["CPS_with_constraints", "C_KNN_weighted_euclidean", "Proximity_efficiency", "Weighted_scoring"],
                 "destination_count": len(destination_data),
                 "used_user_location": {
                     "latitude": resolved_lat,
                     "longitude": resolved_lon,
                     "source": "request" if request_location else "profile",
                 },
-                "package_results": data,
+                "constraints_applied": {
+                    "budget_npr": user_budget,
+                    "duration_days": user_duration,
+                    "preferred_season": user_season,
+                },
+                "user_preferences": user_destination_preferences,
                 "destination_results": destination_data,
             },
             status=status.HTTP_200_OK,

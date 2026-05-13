@@ -45,6 +45,22 @@ class Destination(models.Model):
     tags = models.TextField(null=True, blank=True)
 
     image = models.URLField(blank=True, null=True)
+    
+    # NEW: Constraint fields for recommendations
+    avg_package_price = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Average package price in NPR for this destination"
+    )
+    recommended_visit_days = models.IntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text="Recommended number of days to spend at this destination"
+    )
+    best_season = models.CharField(
+        max_length=100, null=True, blank=True,
+        help_text="Best season(s) to visit (e.g., 'spring,autumn' or 'winter')"
+    )
 
 
 
