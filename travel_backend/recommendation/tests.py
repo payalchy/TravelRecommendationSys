@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from recommendation.models import Destination, TravelPackage
+from recommendation.engine import recommend_destinations_direct
 from users.models import TravelStyle, UserProfile
 
 
@@ -128,3 +129,69 @@ class RecommendationAPITests(APITestCase):
         self.assertEqual(response.data["name"], "Kathmandu")
         self.assertEqual(response.data["latitude"], 27.7172)
         self.assertEqual(response.data["longitude"], 85.324)
+
+    def test_destination_constraints_and_season_weights_affect_scoring(self):
+        # Two destinations with identical attribute ratings and location,
+        # but different budget/season support.
+        dest_match = Mock(
+            culture=4.0,
+            adventure=4.0,
+            wildlife=4.0,
+            sightseeing=4.0,
+            history=4.0,
+            avg_package_price=100.0,
+            recommended_visit_days=5,
+            best_season="summer",
+            latitude=27.7172,
+            longitude=85.3240,
+        )
+        dest_mismatch = Mock(
+            culture=4.0,
+            adventure=4.0,
+            wildlife=4.0,
+            sightseeing=4.0,
+            history=4.0,
+            avg_package_price=1000.0,
+            recommended_visit_days=5,
+            best_season="winter",
+            latitude=27.7172,
+            longitude=85.3240,
+        )
+
+        user_destination_preferences = {
+            "culture": 4,
+            "adventure": 4,
+            "wildlife": 4,
+            "sightseeing": 4,
+            "history": 4,
+        }
+        user_context = {
+            "user_latitude": 27.7172,
+            "user_longitude": 85.3240,
+            "budget": 100.0,
+            "duration": 5,
+            "preferred_season": "summer",
+        }
+
+        results = recommend_destinations_direct(
+            user_destination_preferences=user_destination_preferences,
+            user_context=user_context,
+            destinations=[dest_match, dest_mismatch],
+            destination_top_n=2,
+            destination_weights={
+                "culture": 0.2,
+                "adventure": 0.2,
+                "wildlife": 0.2,
+                "sightseeing": 0.2,
+                "history": 0.2,
+            },
+            destination_alpha=0.0,
+            destination_beta=0.0,
+            destination_gamma=0.0,
+            destination_delta=0.5,
+            destination_epsilon=0.5,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].destination, dest_match)
+        self.assertGreater(results[0].final_score, results[1].final_score)

@@ -45,13 +45,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
     #  return full objects 
     preferred_travel_style = TravelStyleSerializer(many=True, read_only=True)
 
-    # write-only field for updating 
     preferred_travel_style_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=TravelStyle.objects.all(),
-        write_only=True,
-        source='preferred_travel_style'
+        source='preferred_travel_style',
+        required=False,
     )
+
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
 
     preferred_season = serializers.ChoiceField(
         choices=UserProfile.SEASON_CHOICES
@@ -67,7 +69,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'preferred_duration',
             'preferred_season',
             'preferred_travel_style',
-            'preferred_travel_style_ids'
+            'preferred_travel_style_ids',
+            'latitude',
+            'longitude',
         ]
 
     def validate(self, attrs):

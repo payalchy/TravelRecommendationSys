@@ -502,19 +502,23 @@ def _destination_preference_score(user_prefs, destination, weights, user_context
         
         # Budget constraint: check if destination is within budget range
         if user_context.get("budget") and hasattr(destination, "avg_package_price"):
-            budget_score = _preference_similarity(
-                user_context.get("budget"),
-                getattr(destination, "avg_package_price", 0)
-            )
-            constraint_penalty *= budget_score
+            dest_price = getattr(destination, "avg_package_price", None)
+            if dest_price is not None:
+                budget_score = _preference_similarity(
+                    user_context.get("budget"),
+                    dest_price
+                )
+                constraint_penalty *= budget_score
         
         # Duration constraint: check against typical visit duration
         if user_context.get("duration") and hasattr(destination, "recommended_visit_days"):
-            duration_score = _preference_similarity(
-                user_context.get("duration"),
-                getattr(destination, "recommended_visit_days", 2)
-            )
-            constraint_penalty *= duration_score
+            dest_duration = getattr(destination, "recommended_visit_days", None)
+            if dest_duration is not None:
+                duration_score = _preference_similarity(
+                    user_context.get("duration"),
+                    dest_duration
+                )
+                constraint_penalty *= duration_score
         
         # Season preference: check if destination's best season matches user preference
         if user_context.get("preferred_season") and hasattr(destination, "best_season"):
@@ -526,6 +530,52 @@ def _destination_preference_score(user_prefs, destination, weights, user_context
         preference_score *= constraint_penalty
     
     return preference_score
+
+
+def _destination_constraint_penalty(user_context, destination):
+    """
+    Computes the constraint penalty for budget/duration when evaluating a destination.
+    Returns a normalized multiplier in [0, 1] that can be weighted separately.
+    
+    Checks if destination's average package price and duration are within user constraints.
+    """
+    if not user_context:
+        return 1.0
+
+    penalty = 1.0
+
+    # Budget constraint: destination's avg_package_price should match user budget
+    if user_context.get("budget") is not None and hasattr(destination, "avg_package_price"):
+        dest_price = getattr(destination, "avg_package_price", None)
+        if dest_price is not None:
+            penalty *= _preference_similarity(
+                user_context.get("budget"),
+                dest_price,
+            )
+
+    # Duration constraint: destination's recommended_visit_days should match user duration
+    if user_context.get("duration") is not None and hasattr(destination, "recommended_visit_days"):
+        dest_duration = getattr(destination, "recommended_visit_days", None)
+        if dest_duration is not None:
+            penalty *= _preference_similarity(
+                user_context.get("duration"),
+                dest_duration,
+            )
+
+    return penalty
+
+
+def _destination_season_match(user_context, destination):
+    """
+    Computes a season match score for a destination based on user preferred season.
+    """
+    if not user_context or not user_context.get("preferred_season") or not hasattr(destination, "best_season"):
+        return 1.0
+
+    dest_season = str(getattr(destination, "best_season", "")).lower()
+    user_season = str(user_context.get("preferred_season", "")).lower()
+
+    return 1.0 if user_season and user_season in dest_season else 0.6
 
 
 def _destination_weighted_distance(user_prefs, destination, weights):
@@ -636,6 +686,38 @@ def recommend_destinations_direct(
         list: Top N ScoredDestination objects ranked by final_score (descending)
     """
     # ========================================
+    # STEP 0: BUILD PACKAGE CACHE FOR BUDGET/DURATION CONSTRAINTS
+    # ========================================
+    # Import here to avoid circular dependency
+    from .models import TravelPackage
+    
+    # Map destination ID → (avg_price, avg_duration, package_count)
+    dest_package_stats = {}
+    
+    packages = TravelPackage.objects.filter(end_location__isnull=False).values('end_location_id', 'budget', 'days')
+    
+    for pkg in packages:
+        dest_id = pkg['end_location_id']
+        if dest_id not in dest_package_stats:
+            dest_package_stats[dest_id] = []
+        dest_package_stats[dest_id].append({
+            'price': _safe_positive(pkg['budget']),
+            'duration': max(1, int(pkg['days']) if pkg['days'] else 1)
+        })
+    
+    # Compute aggregates
+    dest_budget_duration = {}
+    for dest_id, pkg_list in dest_package_stats.items():
+        if pkg_list:
+            avg_price = sum(p['price'] for p in pkg_list) / len(pkg_list)
+            avg_duration = sum(p['duration'] for p in pkg_list) / len(pkg_list)
+            dest_budget_duration[dest_id] = {
+                'avg_price': avg_price,
+                'avg_duration': avg_duration,
+                'package_count': len(pkg_list)
+            }
+    
+    # ========================================
     # STEP 1: DEFAULT PREFERENCES & WEIGHTS
     # ========================================
     
@@ -667,6 +749,13 @@ def recommend_destinations_direct(
     scored_destinations = []
 
     for destination in destinations:
+        # Dynamically enrich destination with computed package stats
+        dest_stats = dest_budget_duration.get(destination.id, {})
+        if dest_stats:
+            # Temporarily set computed fields for constraint checking
+            destination.avg_package_price = dest_stats['avg_price']
+            destination.recommended_visit_days = int(dest_stats['avg_duration'])
+        
         # Algorithm 1: Contextual Preference Scoring (CPS) with Constraints
         # CPS_dest = Σ w_j × f(U_pref_j, Dest_attr_j) × constraint_penalty × season_match
         # Evaluates how well destination attributes match user preferences
@@ -682,7 +771,25 @@ def recommend_destinations_direct(
             "destination": destination,
             "pref_score": pref_score,
             "dist_km": dist_km,
+            "has_packages": dest_stats.get('package_count', 0) > 0,
         })
+
+    # ========================================
+    # PRE-FILTER: Remove destinations with no packages
+    # ========================================
+    scored_destinations = [d for d in scored_destinations if d['has_packages']]
+    
+    # Safety fallback if all filtered out
+    if not scored_destinations:
+        scored_destinations = [
+            {
+                "destination": d,
+                "pref_score": _destination_preference_score(user_destination_preferences, d, destination_weights, user_context),
+                "dist_km": _user_to_destination_distance_km(user_context, d),
+                "has_packages": False,
+            }
+            for d in destinations[:5]
+        ]
 
     # ========================================
     # STEP 2-3: ALGORITHM 2-3 - C-KNN SELECTION (Weighted Euclidean Distance)
@@ -732,12 +839,17 @@ def recommend_destinations_direct(
         # ====================================
         # STEP 5: ALGORITHM 5 - WEIGHTED LINEAR SCORING
         # ====================================
+        constraint_penalty = _destination_constraint_penalty(user_context, destination)
+        season_match = _destination_season_match(user_context, destination)
+
         # FinalScore = α·CPS + β·Proximity + γ·AttributeAlignment + δ·Constraint + ε·Season
         # Where sum of all weights = 1.0 (normalized by blend_weights)
         final_score = (
             blend_weights["cps"] * pref_score
             + blend_weights["proximity"] * proximity_efficiency
             + blend_weights["attributes"] * attribute_alignment
+            + blend_weights["constraint"] * constraint_penalty
+            + blend_weights["season"] * season_match
         )
 
         results.append(

@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Q
 import json
 from django.shortcuts import render
 from django.urls import reverse
@@ -13,6 +14,7 @@ from rest_framework.views import APIView
 
 from .models import Destination, TravelPackage, PackageItinerary
 from .engine import recommend_destinations_direct, recommend_packages
+from users.models import SearchHistory
 
 
 # ---------------- HELPER FUNCTION ----------------
@@ -72,6 +74,7 @@ def _coerce_request_location(request):
 def _coerce_preferred_province(request):
     payload = request.data if isinstance(request.data, dict) else {}
     province = payload.get("preferred_province")
+
     if province is None:
         return None
 
@@ -94,52 +97,98 @@ def admin_dashboard(request):
         "total_packages": TravelPackage.objects.count(),
         "total_itineraries": PackageItinerary.objects.count(),
         "recent_packages": recent_packages,
-        "destination_changelist_url": reverse("admin:recommendation_destination_changelist"),
-        "package_changelist_url": reverse("admin:recommendation_travelpackage_changelist"),
-        "itinerary_changelist_url": reverse("admin:recommendation_packageitinerary_changelist"),
+        "destination_changelist_url": reverse(
+            "admin:recommendation_destination_changelist"
+        ),
+        "package_changelist_url": reverse(
+            "admin:recommendation_travelpackage_changelist"
+        ),
+        "itinerary_changelist_url": reverse(
+            "admin:recommendation_packageitinerary_changelist"
+        ),
     }
+
     return render(request, "admin/custom_dashboard.html", context)
 
 
 # ---------------- RECOMMENDATION API ----------------
 
 class RecommendationAPIView(APIView):
-    permission_classes = [IsAuthenticated]   # LOGIN REQUIRED
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
 
         # ---------------- GET USER PROFILE ----------------
+
         user = request.user
 
         try:
             profile = user.userprofile
-        except:
-            return Response({"error": "UserProfile not found"}, status=404)
+        except Exception:
+            return Response(
+                {"error": "UserProfile not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         request_location, location_error = _coerce_request_location(request)
+
         if location_error:
-            return Response({"error": location_error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": location_error},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         preferred_province = _coerce_preferred_province(request)
 
-        # Extract constraints from request (optional overrides)
+        # ---------------- REQUEST OVERRIDES ----------------
+
         request_budget = _safe_float(request.data.get("budget"))
         request_duration = _safe_float(request.data.get("duration"))
         request_season = request.data.get("preferred_season")
-        
-        # Use request constraints if provided, otherwise use profile
-        user_budget = request_budget if request_budget is not None else profile.budget
-        user_duration = request_duration if request_duration is not None else profile.preferred_duration
-        user_season = request_season if request_season else None
 
-        profile_lat = float(profile.latitude) if profile.latitude is not None else 27.7172
-        profile_lon = float(profile.longitude) if profile.longitude is not None else 85.3240
-        resolved_lat, resolved_lon = request_location if request_location else (profile_lat, profile_lon)
+        user_budget = (
+            request_budget
+            if request_budget is not None
+            else profile.budget
+        )
 
-        # ---------------- USER CONTEXT FROM PROFILE ----------------
+        user_duration = (
+            request_duration
+            if request_duration is not None
+            else profile.preferred_duration
+        )
+
+        user_season = (
+            request_season
+            if request_season
+            else profile.preferred_season or None
+        )
+
+        # ---------------- LOCATION ----------------
+
+        profile_lat = (
+            float(profile.latitude)
+            if profile.latitude is not None
+            else 27.7172
+        )
+
+        profile_lon = (
+            float(profile.longitude)
+            if profile.longitude is not None
+            else 85.3240
+        )
+
+        resolved_lat, resolved_lon = (
+            request_location
+            if request_location
+            else (profile_lat, profile_lon)
+        )
+
+        # ---------------- USER CONTEXT ----------------
+
         user_context = {
             "budget": user_budget,
-            "distance": 100,  # default fallback
+            "distance": 100,
             "duration": user_duration,
             "travel_type": (
                 profile.preferred_travel_style.first().name
@@ -151,22 +200,11 @@ class RecommendationAPIView(APIView):
             "preferred_season": user_season,
         }
 
-        # ---------------- DESTINATION PREFERENCES (AUTO) ----------------
+        # ---------------- DESTINATION PREFERENCES ----------------
+
         user_destination_preferences = convert_styles_to_weights(profile)
 
-        # ---------------- DEFAULT WEIGHTS ----------------
-        preference_weights = {
-            "budget": 0.3,
-            "distance": 0.3,
-            "duration": 0.2,
-            "travel_type": 0.2,
-        }
-
-        context_weights = {
-            "budget": 0.4,
-            "distance": 0.3,
-            "duration": 0.3,
-        }
+        # ---------------- WEIGHTS ----------------
 
         destination_weights = {
             "culture": 0.2,
@@ -177,31 +215,26 @@ class RecommendationAPIView(APIView):
         }
 
         # ---------------- PARAMETERS ----------------
-        k = 5
-        top_n = 5
+
         destination_top_n = 5
 
-        alpha = 0.4
-        beta = 0.4
-        gamma = 0.2
-
-        destination_alpha = 0.5
-        destination_beta = 0.3
+        destination_alpha = 0.45
+        destination_beta = 0.25
         destination_gamma = 0.2
+        destination_delta = 0.05
+        destination_epsilon = 0.05
 
-        # ---------------- DATA ----------------
-        packages = TravelPackage.objects.select_related("start_location", "end_location").all()
+        # ---------------- DESTINATION QUERY ----------------
+
         destinations = Destination.objects.all()
 
         if preferred_province:
-            packages = packages.filter(end_location__province__iexact=preferred_province)
-            destinations = destinations.filter(province__iexact=preferred_province)
+            destinations = destinations.filter(
+                province__iexact=preferred_province
+            )
 
-        # NEW: Direct destination recommendations (6-Algorithm Pipeline)
-        # No longer using package-based recommendations
-        ranked = []  # Empty - not using packages anymore
-        
-        # Apply all 6 algorithms directly to destinations
+        # ---------------- RECOMMENDATION ENGINE ----------------
+
         destination_ranked = recommend_destinations_direct(
             user_destination_preferences=user_destination_preferences,
             user_context=user_context,
@@ -211,16 +244,18 @@ class RecommendationAPIView(APIView):
             destination_alpha=destination_alpha,
             destination_beta=destination_beta,
             destination_gamma=destination_gamma,
+            destination_delta=destination_delta,
+            destination_epsilon=destination_epsilon,
         )
 
-        # Legacy package ranking (kept for reference, not used)
-        # ranked = recommend_packages(...)
-        
-        data = []  # No package data in new direct recommendations
+        # ---------------- RESPONSE DATA ----------------
 
         destination_data = []
+
         for item in destination_ranked:
+
             destination = item.destination
+
             destination_data.append(
                 {
                     "destination_id": destination.id,
@@ -237,20 +272,50 @@ class RecommendationAPIView(APIView):
                     "distance_km": round(item.distance_km, 6),
                     "preference_score": round(item.preference_score, 6),
                     "geo_score": round(item.geo_score, 6),
-                    "attribute_alignment": round(item.package_support_score, 6),
+                    "attribute_alignment": round(
+                        item.package_support_score, 6
+                    ),
                     "final_score": round(item.final_score, 6),
                 }
             )
 
+        # ---------------- SAVE SEARCH HISTORY ----------------
+
+        SearchHistory.objects.create(
+            user=request.user,
+            search_payload={
+                "budget": user_budget,
+                "duration": user_duration,
+                "preferred_season": user_season,
+                "preferred_province": preferred_province,
+                "location": {
+                    "latitude": resolved_lat,
+                    "longitude": resolved_lon,
+                },
+            },
+            destination_results=destination_data,
+        )
+
+        # ---------------- FINAL RESPONSE ----------------
+
         return Response(
             {
                 "recommendation_type": "direct_destinations_6_algorithm",
-                "pipeline": ["CPS_with_constraints", "C_KNN_weighted_euclidean", "Proximity_efficiency", "Weighted_scoring"],
+                "pipeline": [
+                    "CPS_with_constraints",
+                    "C_KNN_weighted_euclidean",
+                    "Proximity_efficiency",
+                    "Weighted_scoring",
+                ],
                 "destination_count": len(destination_data),
                 "used_user_location": {
                     "latitude": resolved_lat,
                     "longitude": resolved_lon,
-                    "source": "request" if request_location else "profile",
+                    "source": (
+                        "request"
+                        if request_location
+                        else "profile"
+                    ),
                 },
                 "constraints_applied": {
                     "budget_npr": user_budget,
@@ -264,10 +329,13 @@ class RecommendationAPIView(APIView):
         )
 
 
+# ---------------- DESTINATION PROVINCES API ----------------
+
 class DestinationProvinceListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+
         provinces = (
             Destination.objects.exclude(province__isnull=True)
             .exclude(province__exact="")
@@ -275,49 +343,248 @@ class DestinationProvinceListAPIView(APIView):
             .distinct()
             .order_by("province")
         )
-        return Response({"provinces": list(provinces)}, status=status.HTTP_200_OK)
+
+        return Response(
+            {"provinces": list(provinces)},
+            status=status.HTTP_200_OK,
+        )
 
 
-# ---------------- GEOCODE API ----------------
+# ---------------- DESTINATION SEARCH API ----------------
+
+class DestinationSearchAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+
+        query = str(request.query_params.get("q", "")).strip()
+
+        if not query:
+            return Response(
+                {"results": []},
+                status=status.HTTP_200_OK,
+            )
+
+        destinations = (
+            Destination.objects.filter(
+                Q(pName__icontains=query)
+                | Q(province__icontains=query)
+                | Q(tags__icontains=query)
+            )
+            .order_by("pName")
+            .distinct()[:30]
+        )
+
+        results = []
+
+        for destination in destinations:
+
+            results.append(
+                {
+                    "destination_id": destination.id,
+                    "name": destination.pName,
+                    "province": destination.province,
+                    "latitude": destination.latitude,
+                    "longitude": destination.longitude,
+                    "image": destination.image,
+                    "culture": destination.culture,
+                    "adventure": destination.adventure,
+                    "wildlife": destination.wildlife,
+                    "sightseeing": destination.sightseeing,
+                    "history": destination.history,
+                }
+            )
+
+        return Response(
+            {"results": results},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------- DESTINATION GEOCODE API ----------------
 
 class DestinationGeocodeAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        destination_name = request.query_params.get("name", "").strip()
+
+        destination_name = request.query_params.get(
+            "name",
+            "",
+        ).strip()
+
         if not destination_name:
             return Response(
-                {"detail": "Query parameter 'name' is required."},
+                {
+                    "detail": "Query parameter 'name' is required."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         query = f"{destination_name}, Nepal"
-        params = urlencode({"q": query, "format": "json", "limit": 1})
+
+        params = urlencode(
+            {
+                "q": query,
+                "format": "json",
+                "limit": 1,
+            }
+        )
+
         url = f"https://nominatim.openstreetmap.org/search?{params}"
-        req = Request(url, headers={"User-Agent": "travel-backend/1.0"})
+
+        req = Request(
+            url,
+            headers={
+                "User-Agent": "travel-backend/1.0"
+            },
+        )
 
         try:
             with urlopen(req, timeout=10) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+                payload = json.loads(
+                    response.read().decode("utf-8")
+                )
+
         except Exception:
             return Response(
-                {"detail": "Unable to fetch location right now."},
+                {
+                    "detail": "Unable to fetch location right now."
+                },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         if not payload:
             return Response(
-                {"detail": "No location found for this destination in Nepal."},
+                {
+                    "detail": "No location found for this destination in Nepal."
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         first = payload[0]
+
         return Response(
             {
                 "name": destination_name,
                 "latitude": float(first.get("lat")),
                 "longitude": float(first.get("lon")),
                 "display_name": first.get("display_name"),
+            },
+            status=status.HTTP_200_OK,
+        )
+# ---------------- DESTINATION PACKAGES API ----------------
+
+class DestinationPackagesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, destination_id):
+
+        try:
+            destination = Destination.objects.get(id=destination_id)
+
+        except Destination.DoesNotExist:
+            return Response(
+                {
+                    "error": f"Destination with id {destination_id} not found"
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        packages = (
+            TravelPackage.objects.filter(
+                end_location_id=destination_id
+            )
+            .select_related(
+                "start_location",
+                "end_location",
+            )
+            .all()
+        )
+
+        package_data = []
+
+        for pkg in packages:
+
+            # ---------------- SAFE FIELD ACCESS ----------------
+
+            duration = getattr(pkg, "days", None)
+            budget = getattr(pkg, "budget", None)
+            transport_mode = getattr(pkg, "transport_mode", None)
+            package_type = getattr(pkg, "package_type", None)
+
+            # ---------------- ITINERARY ----------------
+
+            itinerary_data = []
+
+            itineraries = (
+                PackageItinerary.objects.filter(package=pkg)
+                .select_related("destination")
+                .order_by("day_number")
+            )
+
+            for itinerary in itineraries:
+
+                itinerary_image = None
+
+                if itinerary.image:
+                    itinerary_image = request.build_absolute_uri(
+                        itinerary.image.url
+                    )
+
+                itinerary_data.append(
+                    {
+                        "day_number": itinerary.day_number,
+                        "destination": (
+                            itinerary.destination.pName
+                            if itinerary.destination
+                            else None
+                        ),
+                        "description": itinerary.description,
+                        "image": itinerary_image,
+                    }
+                )
+
+            # ---------------- PACKAGE IMAGE ----------------
+
+            package_image = None
+
+            if pkg.image:
+                package_image = request.build_absolute_uri(
+                    pkg.image.url
+                )
+
+            # ---------------- PACKAGE DATA ----------------
+
+            package_data.append(
+                {
+                    "package_id": pkg.id,
+                    "name": pkg.name,
+                    "description": pkg.description,
+                    "days": duration,
+                    "budget": budget,
+                    "transport_mode": transport_mode,
+                    "package_type": package_type,
+                    "start_location": (
+                        pkg.start_location.pName
+                        if pkg.start_location
+                        else None
+                    ),
+                    "end_location": destination.pName,
+                    "image": package_image,
+                    "includes": pkg.includes,
+                    "excludes": pkg.excludes,
+                    "itinerary": itinerary_data,
+                }
+            )
+
+        return Response(
+            {
+                "destination_id": destination.id,
+                "destination_name": destination.pName,
+                "province": destination.province,
+                "packages_count": len(package_data),
+                "packages": package_data,
             },
             status=status.HTTP_200_OK,
         )

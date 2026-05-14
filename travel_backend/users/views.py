@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
-from .models import UserProfile, TravelStyle, UserProfileHistory
+from .models import UserProfile, TravelStyle, UserProfileHistory, SearchHistory
 from .serializers import (
     RegisterSerializer,
     UserProfileSerializer,
@@ -104,6 +104,28 @@ class UserProfileHistoryView(generics.ListAPIView):
                 "season": h.preferred_season,
                 "travel_styles": h.travel_styles,
                 "created_at": h.created_at
+            }
+            for h in history
+        ])
+
+
+class UserSearchHistoryView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return SearchHistory.objects.filter(
+            user=self.request.user
+        ).order_by("-created_at")
+
+    def list(self, request, *args, **kwargs):
+        history = self.get_queryset()
+
+        return Response([
+            {
+                "id": h.id,
+                "search_payload": h.search_payload,
+                "destination_results": h.destination_results,
+                "created_at": h.created_at,
             }
             for h in history
         ])
