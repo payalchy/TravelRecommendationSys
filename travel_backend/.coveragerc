@@ -1,6 +1,0 @@
-[run]
-omit =
-    */migrations/*
-    manage.py
-    test_api_endpoint.py
-    test_engine_updates.py

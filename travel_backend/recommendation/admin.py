@@ -1,8 +1,11 @@
 from django.contrib import admin
 from django.contrib import messages
 from django.apps import apps
+from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.text import Truncator
@@ -92,12 +95,86 @@ def _dashboard_each_context(request):
 
 admin.site.each_context = _dashboard_each_context
 
+
+class DestinationMapPickerWidget(forms.Widget):
+    class Media:
+        css = {
+            "all": (
+                "admin/css/package_location_map.css",
+            )
+        }
+        js = ("admin/js/package_location_map.js",)
+
+    def __init__(self, destinations=None, create_pin_url=None, attrs=None):
+        self.destinations = destinations or []
+        self.create_pin_url = create_pin_url
+        super().__init__(attrs)
+
+    def format_value(self, value):
+        if value in (None, ""):
+            return ""
+        return str(value)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        attrs = attrs or {}
+        final_attrs = self.build_attrs(self.attrs, attrs)
+        input_id = final_attrs.get("id", f"id_{name}")
+        selected_value = self.format_value(value)
+
+        destinations_payload = [
+            {
+                "id": destination.id,
+                "name": destination.pName,
+                "province": destination.province or "",
+                "latitude": destination.latitude,
+                "longitude": destination.longitude,
+            }
+            for destination in self.destinations
+            if destination.latitude is not None and destination.longitude is not None
+        ]
+        selected_destination = next(
+            (destination for destination in self.destinations if str(destination.id) == selected_value),
+            None,
+        )
+        selected_label = "No start location selected"
+        if selected_destination is not None:
+            selected_label = f"{selected_destination.pName} ({selected_destination.province or 'N/A'})"
+
+        hidden_input = forms.HiddenInput().render(name, selected_value, {"id": input_id})
+        return format_html(
+            '{}<div class="tm-map-picker" data-map-picker data-input-id="{}" data-selected-id="{}" data-selected-label="{}" data-destinations="{}" data-google-api-key="{}" data-create-pin-url="{}">'
+            '<div class="tm-map-picker__search-section">'
+            '<input type="text" class="tm-map-picker__search-input" placeholder="Search location (e.g., Kathmandu, Pokhara)..." data-search-input />'
+            '<div class="tm-map-picker__search-results" data-search-results></div>'
+            '</div>'
+            '<div class="tm-map-picker__hint">Search for a location or click on the map to view it. The selected coordinates will be displayed below.</div>'
+            '<div class="tm-map-picker__map" id="{}_map"></div>'
+            '<div class="tm-map-picker__footer">'
+            '<div class="tm-map-picker__summary">'
+            '<span class="tm-map-picker__label">Selected start location</span>'
+            '<strong data-selected-name>{}</strong>'
+            '</div>'
+            '<button type="button" class="button" data-clear-selection>Clear selection</button>'
+            '</div>'
+            '</div>',
+            hidden_input,
+            input_id,
+            selected_value,
+            selected_label,
+            json.dumps(destinations_payload),
+            settings.GOOGLE_MAPS_API_KEY or "",
+            self.create_pin_url or "",
+            input_id,
+            selected_label,
+        )
+
 @admin.register(Destination)
 class DestinationAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "destination_summary",
         "province_badge",
+        "city_badge",
         "culture_score",
         "adventure_score",
         "wildlife_score",
@@ -108,7 +185,7 @@ class DestinationAdmin(admin.ModelAdmin):
         "quick_edit",
     )
     list_display_links = ("id", "destination_summary")
-    search_fields = ("pName", "province", "tags")
+    search_fields = ("pName", "province", "city", "tags")
     list_filter = ("province",)
     ordering = ("pName",)
     list_per_page = 50
@@ -116,7 +193,7 @@ class DestinationAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Basic Information", {
-            "fields": ("pName", "province")
+            "fields": ("pName", "province", "city")
         }),
         ("Coordinates", {
             "fields": ("latitude", "longitude", "coordinate_tools"),
@@ -280,6 +357,11 @@ class DestinationAdmin(admin.ModelAdmin):
         label = obj.province or "N/A"
         return format_html('<span class="tm-admin-badge">{}</span>', label)
 
+    @admin.display(description="City", ordering="city")
+    def city_badge(self, obj):
+        label = obj.city or "N/A"
+        return format_html('<span class="tm-admin-badge">{}</span>', label)
+
     @admin.display(description="Rating")
     def ratings_summary(self, obj):
         values = [obj.culture, obj.adventure, obj.wildlife, obj.sightseeing, obj.history]
@@ -369,10 +451,51 @@ class TravelPackageAdmin(admin.ModelAdmin):
     list_display_links = ("package_summary",)
     search_fields = ("name", "package_type", "transport_mode")
     list_filter = ("package_type", "transport_mode")
-    autocomplete_fields = ["start_location", "end_location"]
+    autocomplete_fields = ["end_location"]
     list_select_related = ("start_location", "end_location")
     inlines = [PackageItineraryInline]
     save_on_top = True
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "start_location":
+            # Return a form field directly so Django does not wrap it with
+            # RelatedFieldWidgetWrapper (which adds the green plus icon).
+            create_pin_url = reverse('admin:recommendation_travelpackage_create_pin_destination')
+            return db_field.formfield(
+                widget=DestinationMapPickerWidget(
+                    destinations=Destination.objects.filter(
+                        latitude__isnull=False,
+                        longitude__isnull=False,
+                    ).order_by("pName"),
+                    create_pin_url=create_pin_url,
+                )
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path('create-pin-destination/', self.admin_site.admin_view(self.create_pin_destination), name='recommendation_travelpackage_create_pin_destination'),
+        ]
+        return custom + urls
+
+    def create_pin_destination(self, request):
+        if not request.user.is_staff:
+            return HttpResponseForbidden('Forbidden')
+
+        if request.method != 'POST':
+            return HttpResponseBadRequest('POST required')
+
+        try:
+            payload = json.loads(request.body.decode('utf-8'))
+            lat = float(payload.get('latitude'))
+            lng = float(payload.get('longitude'))
+            name = payload.get('name') or f'Pinned location {lat:.5f},{lng:.5f}'
+        except Exception:
+            return HttpResponseBadRequest('Invalid payload')
+
+        dest = Destination.objects.create(pName=name, province='', latitude=lat, longitude=lng)
+        return JsonResponse({'id': dest.id, 'name': dest.pName, 'province': dest.province or '', 'latitude': dest.latitude, 'longitude': dest.longitude})
 
     def get_exclude(self, request, obj=None):
         # Hide distance_km only on the add form.

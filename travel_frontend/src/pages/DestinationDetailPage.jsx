@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import RouteMap from '../components/RouteMap';
 
 export default function DestinationDetailPage() {
   const { destinationId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedPackage, setExpandedPackage] = useState(null);
+  const [showRouteMap, setShowRouteMap] = useState(false);
 
   const destination = location.state?.destination;
 
@@ -96,6 +100,16 @@ export default function DestinationDetailPage() {
                   {destination.province}
                 </p>
               </div>
+
+              {/* View on Map Button */}
+              {user && user.latitude && user.longitude && destination.latitude && destination.longitude && (
+                <button
+                  onClick={() => setShowRouteMap(true)}
+                  className="w-fit px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm"
+                >
+                  View Route on Map
+                </button>
+              )}
 
               {/* Destination Ratings */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
@@ -376,6 +390,18 @@ export default function DestinationDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Route Map Modal */}
+      {showRouteMap && user && user.latitude && user.longitude && destination.latitude && destination.longitude && (
+        <RouteMap
+          userLat={parseFloat(user.latitude)}
+          userLon={parseFloat(user.longitude)}
+          destLat={parseFloat(destination.latitude)}
+          destLon={parseFloat(destination.longitude)}
+          destName={destination.name}
+          onClose={() => setShowRouteMap(false)}
+        />
+      )}
     </div>
   );
 }

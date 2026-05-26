@@ -12,6 +12,7 @@ import googlemaps
 class Destination(models.Model):
     pName = models.CharField(max_length=255, null=True, blank=True)
     province = models.CharField(max_length=50, null=True, blank=True)
+    city = models.CharField(max_length=255, null=True, blank=True)
     latitude = models.FloatField(
         null=True, blank=True,
         validators=[MinValueValidator(-90), MaxValueValidator(90)]
@@ -212,5 +213,56 @@ class PackageItinerary(models.Model):
 
     def __str__(self):
         return f"{self.package.name} - Day {self.day_number}"
+
+
+class Recommendation(models.Model):
+    """
+    Stores travel recommendations for users based on their preferences and destinations
+    """
+    from django.contrib.auth.models import User
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recommendations')
+    destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='recommendations')
+    score = models.FloatField(
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
+        help_text="Recommendation score (0-5)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-score', '-created_at']
+        unique_together = ('user', 'destination')
+    
+    def __str__(self):
+        return f"{self.user.username} -> {self.destination.pName} ({self.score})"
+
+
+class CostComparison(models.Model):
+    """
+    Evaluates and stores cost comparison and distance metrics for recommendations
+    Related to Recommendation through a OneToOne or ForeignKey relationship
+    """
+    recommendation = models.OneToOneField(
+        Recommendation, 
+        on_delete=models.CASCADE, 
+        related_name='cost_comparison'
+    )
+    distance = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="Distance in kilometers"
+    )
+    estimate_cost = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="Estimated cost for the recommendation in NPR"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Cost Comparison - {self.recommendation.user.username} -> {self.recommendation.destination.pName}"
 
 

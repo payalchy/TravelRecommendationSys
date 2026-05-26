@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import MapPicker from '../components/MapPicker';
 
 export default function PreferencesPage() {
   const navigate = useNavigate();
@@ -13,15 +14,21 @@ export default function PreferencesPage() {
     preferred_travel_style_ids: [],
   });
   const [travelStyles, setTravelStyles] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [selectedProvinces, setSelectedProvinces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [locationData, setLocationData] = useState({
     latitude: 27.7172,
     longitude: 85.324,
   });
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState('');
 
   useEffect(() => {
     fetchTravelStyles();
+    fetchProvinces();
     fetchUserProfile();
   }, []);
 
@@ -34,10 +41,21 @@ export default function PreferencesPage() {
     }
   };
 
+  const fetchProvinces = async () => {
+    try {
+      const response = await recommendationAPI.getProvinces();
+      const provincesList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setProvinces(provincesList);
+    } catch (err) {
+      console.error('Error fetching provinces:', err);
+    }
+  };
+
   const fetchUserProfile = async () => {
     try {
       const response = await recommendationAPI.getUserProfile();
       const profile = response.data;
+      
       setFormData((prev) => ({
         ...prev,
         budget: profile.budget ?? '',
@@ -50,6 +68,13 @@ export default function PreferencesPage() {
           latitude: parseFloat(profile.latitude),
           longitude: parseFloat(profile.longitude),
         });
+      }
+      // Load selected provinces - convert to strings for consistency
+      if (profile.preferred_provinces && Array.isArray(profile.preferred_provinces) && profile.preferred_provinces.length > 0) {
+        const provincesAsStrings = profile.preferred_provinces.map(p => String(p));
+        setSelectedProvinces(provincesAsStrings);
+      } else {
+        setSelectedProvinces([]);
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -83,6 +108,54 @@ export default function PreferencesPage() {
     }));
   };
 
+  const handleGetLiveLocation = () => {
+    setLocationLoading(true);
+    setLocationError('');
+
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      setLocationLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationData({
+          latitude: parseFloat(latitude.toFixed(4)),
+          longitude: parseFloat(longitude.toFixed(4)),
+        });
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        let errorMsg = 'Failed to get your location';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = 'Please enable location access in your browser settings';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = 'Location information is unavailable';
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = 'Location request timed out';
+        }
+        setLocationError(errorMsg);
+        setLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  const handleMapLocationSelected = (lat, lon) => {
+    setLocationData({
+      latitude: parseFloat(lat.toFixed(4)),
+      longitude: parseFloat(lon.toFixed(4)),
+    });
+    setShowMapPicker(false);
+  };
+
   const handleStyleToggle = (styleId) => {
     setFormData((prev) => ({
       ...prev,
@@ -90,6 +163,14 @@ export default function PreferencesPage() {
         ? prev.preferred_travel_style_ids.filter((id) => id !== styleId)
         : [...prev.preferred_travel_style_ids, styleId],
     }));
+  };
+
+  const handleProvinceToggle = (provinceName) => {
+    setSelectedProvinces((prev) =>
+      prev.includes(provinceName)
+        ? prev.filter((p) => p !== provinceName)
+        : [...prev, provinceName]
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -102,6 +183,7 @@ export default function PreferencesPage() {
         preferred_season: formData.preferred_season,
         latitude: locationData.latitude,
         longitude: locationData.longitude,
+        preferred_provinces: selectedProvinces,
       };
 
       if (formData.preferred_travel_style_ids.length > 0) {
@@ -114,7 +196,7 @@ export default function PreferencesPage() {
         updateData.preferred_duration = formData.preferred_duration;
       }
 
-      await recommendationAPI.updateUserProfile(updateData);
+      const response = await recommendationAPI.updateUserProfile(updateData);
       await refreshUserProfile();
       navigate('/home');
     } catch (err) {
@@ -201,6 +283,35 @@ export default function PreferencesPage() {
             </select>
           </div>
 
+          {/* Provinces */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-4">
+              Select Provinces (where to travel)
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {provinces.length > 0 ? (
+                provinces.map((province) => (
+                  <label key={province} className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProvinces.includes(String(province))}
+                      onChange={() => handleProvinceToggle(String(province))}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-gray-700">{province}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="text-gray-500">Loading provinces...</p>
+              )}
+            </div>
+            {selectedProvinces.length > 0 && (
+              <p className="mt-2 text-sm text-gray-600">
+                Selected: {selectedProvinces.join(', ')}
+              </p>
+            )}
+          </div>
+
           {/* Travel Styles */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-4">
@@ -224,7 +335,14 @@ export default function PreferencesPage() {
           {/* Location */}
           <div className="border-t pt-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Location</h3>
-            <div className="grid grid-cols-2 gap-4">
+            
+            {locationError && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+                {locationError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-1">
                   Latitude
@@ -254,9 +372,28 @@ export default function PreferencesPage() {
                 />
               </div>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+
+            <p className="text-sm text-gray-500 mb-4">
               Current: Latitude {locationData.latitude}, Longitude {locationData.longitude}
             </p>
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleGetLiveLocation}
+                disabled={locationLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium text-sm"
+              >
+                {locationLoading ? 'Getting Location...' : 'Use Live Location'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMapPicker(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+              >
+                Choose on Map
+              </button>
+            </div>
           </div>
 
           <button
@@ -267,6 +404,15 @@ export default function PreferencesPage() {
             {loading ? 'Saving...' : 'Save Preferences & Get Recommendations'}
           </button>
         </form>
+
+        {showMapPicker && (
+          <MapPicker
+            initialLat={locationData.latitude}
+            initialLon={locationData.longitude}
+            onLocationSelected={handleMapLocationSelected}
+            onClose={() => setShowMapPicker(false)}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import UserProfile, TravelStyle, UserProfileHistory, SearchHistory
+from .models import UserProfile, TravelStyle, UserProfileHistory
 from .serializers import (
     RegisterSerializer,
     UserProfileSerializer,
@@ -9,12 +10,8 @@ from .serializers import (
 )
 
 
-# =========================
-# REGISTER
-# =========================
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
-    permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -28,9 +25,6 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# =========================
-# PROFILE 
-# =========================
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -41,24 +35,14 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-
-        serializer = self.get_serializer(
-            instance,
-            data=request.data,
-            partial=True
-        )
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        serializer.save()
 
-        # reload DB 
-        instance.refresh_from_db()
-
-        # convert travel styles → string 
+        # Save to history
         travel_styles = ", ".join(
             [t.name for t in instance.preferred_travel_style.all()]
         )
-
-        # SAVE HISTORY 
         UserProfileHistory.objects.create(
             user=request.user,
             budget=instance.budget,
@@ -73,9 +57,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         }, status=status.HTTP_200_OK)
 
 
-# =========================
-# TRAVEL STYLE LIST
-# =========================
 class TravelStyleListView(generics.ListAPIView):
     queryset = TravelStyle.objects.all()
     serializer_class = TravelStyleSerializer
@@ -109,23 +90,5 @@ class UserProfileHistoryView(generics.ListAPIView):
         ])
 
 
-class UserSearchHistoryView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return SearchHistory.objects.filter(
-            user=self.request.user
-        ).order_by("-created_at")
-
-    def list(self, request, *args, **kwargs):
-        history = self.get_queryset()
-
-        return Response([
-            {
-                "id": h.id,
-                "search_payload": h.search_payload,
-                "destination_results": h.destination_results,
-                "created_at": h.created_at,
-            }
-            for h in history
-        ])
+# DESTINATION STATUS VIEWSET TEMPORARILY REMOVED
+# ========================= 

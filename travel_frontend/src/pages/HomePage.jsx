@@ -30,19 +30,21 @@ export default function HomePage() {
       const payload = {
         user_latitude: user?.latitude || 27.7172,
         user_longitude: user?.longitude || 85.324,
-        budget: user?.budget,
-        duration: user?.preferred_duration,
-        preferred_season: user?.preferred_season,
       };
 
-      const response = await recommendationAPI.getRecommendations(payload);
+      if (user?.budget) payload.budget = user.budget;
+      if (user?.preferred_duration) payload.duration = user.preferred_duration;
+      if (user?.preferred_season) payload.preferred_season = user.preferred_season;
+      if (user?.preferred_provinces && user.preferred_provinces.length > 0) {
+        payload.preferred_provinces = user.preferred_provinces;
+      }
 
+      const response = await recommendationAPI.getRecommendations(payload);
       setDestinations(response.data.destination_results || []);
     } catch (err) {
       setError(
         err.response?.data?.error || 'Failed to fetch recommendations'
       );
-
       console.error('Error:', err);
     } finally {
       setLoading(false);

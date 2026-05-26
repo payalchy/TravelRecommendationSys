@@ -157,4 +157,4 @@ SIMPLE_JWT = {
 # Set your Google Maps API key here or as an environment variable
 # Get your API key from: https://developers.google.com/maps/documentation/geocoding/get-api-key
 # Set it in environment variable GOOGLE_MAPS_API_KEY or directly below
-GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', None)
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', 'AIzaSyBXoZWW9Z3l8yOtBMt-uHstiTxmHaLWHpk')

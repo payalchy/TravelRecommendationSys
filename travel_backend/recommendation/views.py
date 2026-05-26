@@ -19,28 +19,31 @@ from users.models import SearchHistory
 
 # ---------------- HELPER FUNCTION ----------------
 
-def convert_styles_to_weights(profile):
+def convert_styles_to_preferences(profile):
+    """
+    Convert selected travel styles to preference values (0-5 scale).
+    If user selects a style, set preference to 4.0 (high interest).
+    If not selected, set to 1.0 (low interest).
+    """
     styles = profile.preferred_travel_style.all()
 
-    weights = {
-        "culture": 0,
-        "adventure": 0,
-        "wildlife": 0,
-        "sightseeing": 0,
-        "history": 0,
+    # Default: low interest in all categories
+    preferences = {
+        "culture": 1.0,
+        "adventure": 1.0,
+        "wildlife": 1.0,
+        "sightseeing": 1.0,
+        "history": 1.0,
     }
 
-    if not styles:
-        return {k: 0.2 for k in weights}
+    # If user selected styles, set those to high interest (4.0)
+    if styles:
+        for style in styles:
+            name = style.name.lower()
+            if name in preferences:
+                preferences[name] = 4.0
 
-    weight_value = 1 / styles.count()
-
-    for style in styles:
-        name = style.name.lower()
-        if name in weights:
-            weights[name] = weight_value
-
-    return weights
+    return preferences
 
 
 def _safe_float(value, default=None):
@@ -80,6 +83,26 @@ def _coerce_preferred_province(request):
 
     normalized = str(province).strip()
     return normalized or None
+
+
+def _coerce_preferred_provinces(request):
+    """Parse preferred_provinces from request (can be array or single value)"""
+    payload = request.data if isinstance(request.data, dict) else {}
+    provinces = payload.get("preferred_provinces")
+
+    if provinces is None:
+        return []
+    
+    if isinstance(provinces, list):
+        # Filter out empty strings and normalize
+        return [str(p).strip() for p in provinces if str(p).strip()]
+    
+    if isinstance(provinces, str):
+        # Single province as string
+        normalized = str(provinces).strip()
+        return [normalized] if normalized else []
+    
+    return []
 
 
 # ---------------- ADMIN DASHBOARD ----------------
@@ -139,6 +162,7 @@ class RecommendationAPIView(APIView):
             )
 
         preferred_province = _coerce_preferred_province(request)
+        request_provinces = _coerce_preferred_provinces(request)
 
         # ---------------- REQUEST OVERRIDES ----------------
 
@@ -202,7 +226,7 @@ class RecommendationAPIView(APIView):
 
         # ---------------- DESTINATION PREFERENCES ----------------
 
-        user_destination_preferences = convert_styles_to_weights(profile)
+        user_destination_preferences = convert_styles_to_preferences(profile)
 
         # ---------------- WEIGHTS ----------------
 
@@ -228,24 +252,34 @@ class RecommendationAPIView(APIView):
 
         destinations = Destination.objects.all()
 
+        # Collect all provinces to filter by
+        provinces_to_filter = []
+        
+        # Add request provinces if provided
+        if request_provinces:
+            provinces_to_filter.extend(request_provinces)
+        
+        # Add user's saved provinces
+        user_provinces = profile.get_preferred_provinces() if hasattr(profile, 'get_preferred_provinces') else []
+        if user_provinces:
+            provinces_to_filter.extend(user_provinces)
+        
+        # If request had single preferred_province, add it
         if preferred_province:
-            destinations = destinations.filter(
-                province__iexact=preferred_province
-            )
+            provinces_to_filter.append(preferred_province)
+        
+        # Remove duplicates and filter
+        if provinces_to_filter:
+            unique_provinces = list(set(provinces_to_filter))
+            destinations = destinations.filter(province__in=unique_provinces)
 
         # ---------------- RECOMMENDATION ENGINE ----------------
 
         destination_ranked = recommend_destinations_direct(
-            user_destination_preferences=user_destination_preferences,
+            user_prefs=user_destination_preferences,
             user_context=user_context,
             destinations=destinations,
-            destination_top_n=destination_top_n,
-            destination_weights=destination_weights,
-            destination_alpha=destination_alpha,
-            destination_beta=destination_beta,
-            destination_gamma=destination_gamma,
-            destination_delta=destination_delta,
-            destination_epsilon=destination_epsilon,
+            top_n=destination_top_n,
         )
 
         # ---------------- RESPONSE DATA ----------------
@@ -345,7 +379,7 @@ class DestinationProvinceListAPIView(APIView):
         )
 
         return Response(
-            {"provinces": list(provinces)},
+            list(provinces),
             status=status.HTTP_200_OK,
         )
 

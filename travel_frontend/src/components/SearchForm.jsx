@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { recommendationAPI } from '../services/api';
 
 export default function SearchForm({ onSearch, loading }) {
@@ -8,7 +8,28 @@ export default function SearchForm({ onSearch, loading }) {
   const [budget, setBudget] = useState('');
   const [duration, setDuration] = useState('');
   const [season, setSeason] = useState('');
+  const [provinces, setProvinces] = useState([]);
+  const [selectedProvinces, setSelectedProvinces] = useState([]);
   const [geocodingLoading, setGeocodingLoading] = useState(false);
+  const [provincesLoading, setProvincesLoading] = useState(false);
+
+  useEffect(() => {
+    // Fetch available provinces on component mount
+    fetchProvinces();
+  }, []);
+
+  const fetchProvinces = async () => {
+    try {
+      setProvincesLoading(true);
+      const response = await recommendationAPI.getProvinces();
+      const provincesList = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setProvinces(provincesList);
+    } catch (err) {
+      console.error('Error fetching provinces:', err);
+    } finally {
+      setProvincesLoading(false);
+    }
+  };
 
   const handleGeocodeLocation = async (e) => {
     e.preventDefault();
@@ -43,6 +64,10 @@ export default function SearchForm({ onSearch, loading }) {
     if (budget) payload.budget = parseFloat(budget);
     if (duration) payload.duration = parseFloat(duration);
     if (season) payload.preferred_season = season;
+    if (selectedProvinces.length > 0) {
+      // Send selected provinces as filter
+      payload.preferred_provinces = selectedProvinces;
+    }
 
     onSearch(payload);
   };
@@ -118,6 +143,30 @@ export default function SearchForm({ onSearch, loading }) {
             <option value="autumn">Autumn</option>
             <option value="winter">Winter</option>
           </select>
+        </div>
+
+        {/* Provinces */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Provinces
+          </label>
+          <select
+            multiple
+            value={selectedProvinces}
+            onChange={(e) => {
+              const selected = Array.from(e.target.selectedOptions, option => option.value);
+              setSelectedProvinces(selected);
+            }}
+            disabled={provincesLoading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500"
+          >
+            {provinces.map((province) => (
+              <option key={province} value={province}>
+                {province}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
         </div>
 
         {/* Latitude */}
