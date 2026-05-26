@@ -32,16 +32,16 @@ export default function RegisterPage() {
 
     try {
       await register(formData.username, formData.email, formData.password);
-      // Auto-login after registration
       await login(formData.username, formData.password);
       navigate('/preferences');
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-        err.response?.data?.username?.[0] ||
-        err.response?.data?.email?.[0] ||
-        'Registration failed. Please try again.'
-      );
+      const errorMsg = err.response?.data?.error ||
+                       err.response?.data?.username?.[0] ||
+                       err.response?.data?.email?.[0] ||
+                       err.response?.data?.detail ||
+                       err.message ||
+                       'Registration failed. Please try again.';
+      setError(String(errorMsg));
     } finally {
       setLoading(false);
     }
