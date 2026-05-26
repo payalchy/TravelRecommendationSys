@@ -184,22 +184,21 @@ export default function PreferencesPage() {
         latitude: locationData.latitude,
         longitude: locationData.longitude,
         preferred_provinces: selectedProvinces,
+        preferred_travel_style_ids: formData.preferred_travel_style_ids,
       };
 
-      if (formData.preferred_travel_style_ids.length > 0) {
-        updateData.preferred_travel_style_ids = formData.preferred_travel_style_ids;
-      }
       if (formData.budget !== '') {
-        updateData.budget = formData.budget;
+        updateData.budget = parseFloat(formData.budget);
       }
       if (formData.preferred_duration !== '') {
-        updateData.preferred_duration = formData.preferred_duration;
+        updateData.preferred_duration = parseInt(formData.preferred_duration);
       }
 
-      const response = await recommendationAPI.updateUserProfile(updateData);
+      await recommendationAPI.updateUserProfile(updateData);
       await refreshUserProfile();
-      navigate('/home');
+      navigate('/home', { replace: true });
     } catch (err) {
+      console.error('Update error:', err);
       const apiResponse = err.response?.data;
       const message = apiResponse?.error
         || (apiResponse && typeof apiResponse === 'object'

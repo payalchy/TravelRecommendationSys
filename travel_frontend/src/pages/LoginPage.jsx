@@ -23,11 +23,11 @@ export default function LoginPage() {
       await login(formData.username, formData.password);
       navigate('/home');
     } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-        err.response?.data?.error ||
-        'Login failed. Please check your credentials.'
-      );
+      const errorMsg = err.response?.data?.detail ||
+                       err.response?.data?.error ||
+                       err.message ||
+                       'Login failed. Please check your credentials.';
+      setError(String(errorMsg));
     } finally {
       setLoading(false);
     }
