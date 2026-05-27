@@ -1,0 +1,231 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('PAGE LOADED - Initializing map picker');
+      
+      var wrappers = document.querySelectorAll('[data-map-picker]');
+      console.log('Found ' + wrappers.length + ' map pickers');
+      
+      wrappers.forEach(function(wrapper) {
+        initMapPicker(wrapper);
+      });
+    });
+    
+    var mapsCache = {}; // Cache maps by wrapper ID
+    
+    function initMapPicker(wrapper) {
+      var mapElement = wrapper.querySelector('.tm-map-picker__map');
+      if (!mapElement) {
+        console.log('Map element not found');
+        return;
+      }
+      
+      mapElement.innerHTML = '<div style="padding: 20px; background: #f0f0f0; color: #333;">Loading Google Maps...</div>';
+      
+      var apiKey = wrapper.getAttribute('data-google-api-key');
+      if (!apiKey) {
+        mapElement.innerHTML = '<div style="padding: 20px; color: red;">Error: API key not found</div>';
+        return;
+      }
+      
+      console.log('Starting Google Maps initialization');
+      loadGoogleMaps(mapElement, apiKey, wrapper);
+    }
+    
+    function loadGoogleMaps(mapElement, apiKey, wrapper) {
+      if (window.google && window.google.maps) {
+        console.log('Google Maps already loaded');
+        initializeMapElement(mapElement, window.google.maps, wrapper);
+        return;
+      }
+      
+      var callbackName = 'gmapsCallback' + Date.now();
+      window[callbackName] = function() {
+        console.log('Google Maps loaded via callback');
+        delete window[callbackName];
+        initializeMapElement(mapElement, window.google.maps, wrapper);
+      };
+      
+      var script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&callback=' + callbackName;
+      script.async = true;
+      
+      script.onerror = function() {
+        console.error('Failed to load Google Maps');
+        mapElement.innerHTML = '<div style="padding: 20px; color: red;">Failed to load Google Maps</div>';
+      };
+      
+      console.log('Appending Google Maps script');
+      document.head.appendChild(script);
+    }
+    
+    function initializeMapElement(mapElement, maps, wrapper) {
+      try {
+        console.log('Creating map');
+        mapElement.innerHTML = '';
+        
+        var map = new maps.Map(mapElement, {
+          center: { lat: 28.3949, lng: 84.1240 },
+          zoom: 7,
+          scrollwheel: true,
+          zoomControl: true,
+          mapTypeControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+        
+        console.log('Map created successfully!');
+        
+        var marker = null;
+        var inputId = wrapper.getAttribute('data-input-id');
+        var inputElement = document.getElementById(inputId);
+        var wrapId = inputId + '_wrapper';
+        mapsCache[wrapId] = { map: map, maps: maps, marker: marker, wrapper: wrapper };
+        
+        // Add click listener to place markers
+        map.addListener('click', function(event) {
+          console.log('Map clicked at', event.latLng.lat(), event.latLng.lng());
+          
+          var cached = mapsCache[wrapId];
+          if (cached.marker) {
+            cached.marker.setMap(null);
+          }
+          
+          cached.marker = new maps.Marker({
+            position: event.latLng,
+            map: map,
+            title: 'Selected Location',
+          });
+          
+          // Update the form field with the selected destination ID
+          var coordDisplay = wrapper.querySelector('[data-selected-name]');
+          if (coordDisplay) {
+            coordDisplay.textContent = 'Lat: ' + event.latLng.lat().toFixed(4) + ', Lng: ' + event.latLng.lng().toFixed(4);
+          }
+        });
+        
+        // Add search functionality
+        var searchInput = wrapper.querySelector('[data-search-input]');
+        var searchResults = wrapper.querySelector('[data-search-results]');
+        var destinationsStr = wrapper.getAttribute('data-destinations');
+        var destinations = [];
+        try {
+          destinations = JSON.parse(destinationsStr);
+        } catch(e) {
+          console.error('Failed to parse destinations:', e);
+        }
+        
+        if (searchInput) {
+          searchInput.addEventListener('input', function(e) {
+            var query = e.target.value.toLowerCase();
+            if (query.length === 0) {
+              searchResults.innerHTML = '';
+              searchResults.classList.remove('active');
+              return;
+            }
+            
+            // Filter destinations based on search query
+            var filtered = destinations.filter(function(dest) {
+              return dest.name.toLowerCase().includes(query) || 
+                     dest.province.toLowerCase().includes(query);
+            });
+            
+            // Display search results
+            if (filtered.length > 0) {
+              searchResults.innerHTML = filtered.map(function(dest, idx) {
+                return '<div class="tm-search-result" style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer;" data-dest-id="' + dest.id + '">' +
+                       '<strong style="color: #000;">' + dest.name + '</strong>' +
+                       (dest.province ? ' <span style="color: #333;">(' + dest.province + ')</span>' : '') +
+                       '</div>';
+              }).join('');
+              searchResults.classList.add('active');
+              
+              // Add click handlers for search results
+              Array.from(searchResults.querySelectorAll('.tm-search-result')).forEach(function(elem) {
+                elem.addEventListener('click', function() {
+                  var destId = elem.getAttribute('data-dest-id');
+                  var dest = destinations.find(function(d) { return d.id == destId; });
+                  if (dest) {
+                    selectDestination(wrapId, dest, mapsCache, map, maps);
+                    searchInput.value = '';
+                    searchResults.innerHTML = '';
+                    searchResults.classList.remove('active');
+                  }
+                });
+                
+                elem.addEventListener('mouseover', function() {
+                  elem.style.backgroundColor = '#f3f4f6';
+                });
+                
+                elem.addEventListener('mouseout', function() {
+                  elem.style.backgroundColor = 'transparent';
+                });
+              });
+            } else {
+              searchResults.innerHTML = '<div style="padding: 10px 12px; color: #999;">No destinations found</div>';
+              searchResults.classList.add('active');
+            }
+          });
+          
+          // Hide results when clearing
+          searchInput.addEventListener('focus', function() {
+            if (searchInput.value.length === 0) {
+              searchResults.classList.remove('active');
+            }
+          });
+          
+          searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+            }
+          });
+        }
+        
+      } catch(e) {
+        console.error('Error creating map:', e);
+        mapElement.innerHTML = '<div style="padding: 20px; color: red;">Error: ' + e.message + '</div>';
+      }
+    }
+    
+    function selectDestination(wrapId, dest, mapsCache, map, maps) {
+      console.log('Selecting destination:', dest);
+      
+      if (!mapsCache[wrapId]) {
+        console.error('Map cache not found');
+        return;
+      }
+      
+      var cached = mapsCache[wrapId];
+      var location = { lat: parseFloat(dest.latitude), lng: parseFloat(dest.longitude) };
+      
+      cached.map.setCenter(location);
+      cached.map.setZoom(12);
+      
+      if (cached.marker) {
+        cached.marker.setMap(null);
+      }
+      
+      cached.marker = new cached.maps.Marker({
+        position: location,
+        map: cached.map,
+        title: dest.name,
+      });
+      
+      // Update form field
+      var inputId = cached.wrapper.getAttribute('data-input-id');
+      var inputElement = document.getElementById(inputId);
+      if (inputElement) {
+        inputElement.value = dest.id;
+      }
+      
+      // Update display
+      var coordDisplay = cached.wrapper.querySelector('[data-selected-name]');
+      if (coordDisplay) {
+        coordDisplay.textContent = dest.name + ' (' + (dest.province || 'N/A') + ')';
+      }
+    }
+  </script>
+{% endblock %}

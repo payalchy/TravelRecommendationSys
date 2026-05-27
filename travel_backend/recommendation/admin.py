@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.urls import path, reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.utils.text import Truncator
 from django.core.exceptions import ValidationError
 import json
@@ -103,7 +103,7 @@ class DestinationMapPickerWidget(forms.Widget):
                 "admin/css/package_location_map.css",
             )
         }
-        js = ("admin/js/package_location_map.js",)
+        js = ()  # Removed external js - using inline script instead
 
     def __init__(self, destinations=None, create_pin_url=None, attrs=None):
         self.destinations = destinations or []
@@ -455,6 +455,7 @@ class TravelPackageAdmin(admin.ModelAdmin):
     list_select_related = ("start_location", "end_location")
     inlines = [PackageItineraryInline]
     save_on_top = True
+    change_form_template = "admin/recommendation/travelpackage_change_form.html"
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "start_location":
