@@ -71,18 +71,10 @@ class UserProfileHistory(models.Model):
 
 
 class SearchHistory(models.Model):
-    """
-    Stores search requests and the recommendation results returned for each user search.
-    """
-
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    query = models.CharField(max_length=255)
+    
     search_payload = models.JSONField(null=True, blank=True)
     destination_results = models.JSONField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.username} search at {self.created_at}"
-

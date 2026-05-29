@@ -249,7 +249,7 @@ class CostComparison(models.Model):
         related_name='cost_comparison'
     )
     distance = models.FloatField(
-        validators=[MinValueValidator(0)],
+        validators=[MinValueValidator(0)],  
         help_text="Distance in kilometers"
     )
     estimate_cost = models.FloatField(

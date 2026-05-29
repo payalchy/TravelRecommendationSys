@@ -387,11 +387,15 @@ class DestinationProvinceListAPIView(APIView):
 # ---------------- DESTINATION SEARCH API ----------------
 
 class DestinationSearchAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
 
-        query = str(request.query_params.get("q", "")).strip()
+        query = str(
+            request.query_params.get("q", "")
+        ).strip()
+
+        # ---------------- EMPTY QUERY ----------------
 
         if not query:
             return Response(
@@ -399,11 +403,12 @@ class DestinationSearchAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+        # ---------------- SEARCH DESTINATIONS ----------------
+
         destinations = (
             Destination.objects.filter(
-                Q(pName__icontains=query)
+                Q(pName__istartswith=query)
                 | Q(province__icontains=query)
-                | Q(tags__icontains=query)
             )
             .order_by("pName")
             .distinct()[:30]
@@ -420,7 +425,13 @@ class DestinationSearchAPIView(APIView):
                     "province": destination.province,
                     "latitude": destination.latitude,
                     "longitude": destination.longitude,
-                    "image": destination.image,
+                    "image": (
+                        request.build_absolute_uri(
+                            destination.image.url
+                        )
+                        if destination.image
+                        else None
+                    ),
                     "culture": destination.culture,
                     "adventure": destination.adventure,
                     "wildlife": destination.wildlife,
@@ -429,8 +440,19 @@ class DestinationSearchAPIView(APIView):
                 }
             )
 
+        # ---------------- SAVE SEARCH HISTORY ----------------
+
+        if request.user.is_authenticated and query:
+          SearchHistory.objects.create(
+            user=request.user,
+            query=query
+            )
+        # ---------------- RESPONSE ----------------
+
         return Response(
-            {"results": results},
+            {
+                "results": results
+            },
             status=status.HTTP_200_OK,
         )
 

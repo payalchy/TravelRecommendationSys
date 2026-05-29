@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UserProfile, TravelStyle
+from .models import UserProfile, TravelStyle, SearchHistory
 
 
 # =========================
@@ -81,3 +81,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 {"preferred_travel_style_ids": "Select at least one travel style."}
             )
         return attrs
+
+class SearchHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SearchHistory
+        fields = "__all__"
