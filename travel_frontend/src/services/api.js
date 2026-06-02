@@ -76,7 +76,7 @@ export const recommendationAPI = {
 
   // Get user profile
   getUserProfile: () =>
-    api.get('/users/search-history/'),
+    api.get('/users/profile/'),
 
   // Update user profile
   updateUserProfile: (data) =>

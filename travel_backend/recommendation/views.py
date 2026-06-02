@@ -98,11 +98,39 @@ def _coerce_preferred_provinces(request):
         return [str(p).strip() for p in provinces if str(p).strip()]
     
     if isinstance(provinces, str):
-        # Single province as string
         normalized = str(provinces).strip()
-        return [normalized] if normalized else []
+        if not normalized:
+            return []
+
+        try:
+            parsed = json.loads(normalized)
+            if isinstance(parsed, list):
+                return [str(p).strip() for p in parsed if str(p).strip()]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+        if normalized.startswith("[") and normalized.endswith("]"):
+            return []
+
+        return [normalized]
     
     return []
+
+
+def _normalize_province_value(value):
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
+def _province_filter_query(provinces):
+    query = Q()
+    for province in provinces:
+        normalized = _normalize_province_value(province)
+        if normalized:
+            query |= Q(province__iexact=normalized)
+    return query
 
 
 # ---------------- ADMIN DASHBOARD ----------------
@@ -257,21 +285,27 @@ class RecommendationAPIView(APIView):
         
         # Add request provinces if provided
         if request_provinces:
-            provinces_to_filter.extend(request_provinces)
+            provinces_to_filter.extend(
+                filter(None, (_normalize_province_value(p) for p in request_provinces))
+            )
         
         # Add user's saved provinces
         user_provinces = profile.get_preferred_provinces() if hasattr(profile, 'get_preferred_provinces') else []
         if user_provinces:
-            provinces_to_filter.extend(user_provinces)
+            provinces_to_filter.extend(
+                filter(None, (_normalize_province_value(p) for p in user_provinces))
+            )
         
         # If request had single preferred_province, add it
         if preferred_province:
-            provinces_to_filter.append(preferred_province)
+            normalized_province = _normalize_province_value(preferred_province)
+            if normalized_province:
+                provinces_to_filter.append(normalized_province)
         
         # Remove duplicates and filter
         if provinces_to_filter:
-            unique_provinces = list(set(provinces_to_filter))
-            destinations = destinations.filter(province__in=unique_provinces)
+            unique_provinces = list({p.lower(): p for p in provinces_to_filter}.values())
+            destinations = destinations.filter(_province_filter_query(unique_provinces))
 
         # ---------------- RECOMMENDATION ENGINE ----------------
 

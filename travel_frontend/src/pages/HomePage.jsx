@@ -17,6 +17,33 @@ export default function HomePage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
 
+  const normalizeProvinceList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((province) => String(province).trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((province) => String(province).trim()).filter(Boolean);
+        }
+      } catch {
+        return trimmed
+          .split(',')
+          .map((province) => String(province).trim())
+          .filter(Boolean);
+      }
+    }
+
+    return [];
+  };
+
+  const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
+
   useEffect(() => {
     if (user) {
       fetchRecommendations();
@@ -42,12 +69,11 @@ export default function HomePage() {
         payload.preferred_season = user.preferred_season;
       }
 
-      if (
-        user?.preferred_provinces &&
-        user.preferred_provinces.length > 0
-      ) {
-        payload.preferred_provinces =
-          user.preferred_provinces;
+      const preferredProvinces = normalizeProvinceList(user?.preferred_provinces);
+      const fallbackProvinces = getStoredProvinceList();
+
+      if (preferredProvinces.length > 0 || fallbackProvinces.length > 0) {
+        payload.preferred_provinces = preferredProvinces.length > 0 ? preferredProvinces : fallbackProvinces;
       }
 
       const response =

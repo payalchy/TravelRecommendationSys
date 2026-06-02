@@ -3,6 +3,33 @@ import { authAPI, recommendationAPI } from '../services/api';
 
 export const AuthContext = createContext();
 
+const normalizeProvinceList = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((province) => String(province).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((province) => String(province).trim()).filter(Boolean);
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map((province) => String(province).trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [];
+};
+
+const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,7 +39,11 @@ export function AuthProvider({ children }) {
     try {
       const response = await recommendationAPI.getUserProfile();
       if (response.data) {
-        setUser(response.data);
+        const preferredProvinces = normalizeProvinceList(response.data.preferred_provinces);
+        setUser({
+          ...response.data,
+          preferred_provinces: preferredProvinces.length > 0 ? preferredProvinces : getStoredProvinceList(),
+        });
       }
     } catch (error) {
       localStorage.removeItem('access_token');

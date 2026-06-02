@@ -26,6 +26,50 @@ export default function PreferencesPage() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
 
+  const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
+
+  const normalizeProvinceList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((province) => String(province).trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((province) => String(province).trim()).filter(Boolean);
+        }
+      } catch {
+        return trimmed
+          .split(',')
+          .map((province) => String(province).trim())
+          .filter(Boolean);
+      }
+    }
+
+    return [];
+  };
+
+  const storeProvinceSelection = (provinces) => {
+    localStorage.setItem('preferred_provinces', JSON.stringify(normalizeProvinceList(provinces)));
+  };
+
+  useEffect(() => {
+    const initialProvinces = normalizeProvinceList(user?.preferred_provinces);
+    if (initialProvinces.length > 0) {
+      setSelectedProvinces(initialProvinces);
+      return;
+    }
+
+    const storedProvinces = getStoredProvinceList();
+    if (storedProvinces.length > 0) {
+      setSelectedProvinces(storedProvinces);
+    }
+  }, [user?.preferred_provinces]);
+
   useEffect(() => {
     fetchTravelStyles();
     fetchProvinces();
@@ -55,6 +99,12 @@ export default function PreferencesPage() {
     try {
       const response = await recommendationAPI.getUserProfile();
       const profile = response.data;
+      const profileProvinces = normalizeProvinceList(profile.preferred_provinces);
+      const fallbackProvinces = normalizeProvinceList(user?.preferred_provinces);
+      const storedProvinces = getStoredProvinceList();
+      const resolvedProvinces = profileProvinces.length > 0
+        ? profileProvinces
+        : (fallbackProvinces.length > 0 ? fallbackProvinces : storedProvinces);
       
       setFormData((prev) => ({
         ...prev,
@@ -70,14 +120,21 @@ export default function PreferencesPage() {
         });
       }
       // Load selected provinces - convert to strings for consistency
-      if (profile.preferred_provinces && Array.isArray(profile.preferred_provinces) && profile.preferred_provinces.length > 0) {
-        const provincesAsStrings = profile.preferred_provinces.map(p => String(p));
-        setSelectedProvinces(provincesAsStrings);
-      } else {
-        setSelectedProvinces([]);
+      setSelectedProvinces(resolvedProvinces);
+      if (resolvedProvinces.length > 0) {
+        storeProvinceSelection(resolvedProvinces);
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
+      const fallbackProvinces = normalizeProvinceList(user?.preferred_provinces);
+      if (fallbackProvinces.length > 0) {
+        setSelectedProvinces(fallbackProvinces);
+      } else {
+        const storedProvinces = getStoredProvinceList();
+        if (storedProvinces.length > 0) {
+          setSelectedProvinces(storedProvinces);
+        }
+      }
     }
   };
 
@@ -195,6 +252,7 @@ export default function PreferencesPage() {
       }
 
       await recommendationAPI.updateUserProfile(updateData);
+      storeProvinceSelection(selectedProvinces);
       await refreshUserProfile();
       navigate('/home', { replace: true });
     } catch (err) {

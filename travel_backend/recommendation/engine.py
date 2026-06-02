@@ -147,12 +147,13 @@ def compute_weighted_distance(user_context, package, weights, distance2):
 # COST & TIME EFFICIENCY (UPDATED CORE FIX)
 # =========================
 
-def compute_efficiencies(package, distance2):
+def compute_efficiencies(package, distance, distance2):
     """
     UPDATED FORMULA:
     cost_efficiency = cost / (distance + distance2)
     """
 
+    distance = max(_safe_positive(distance), EPSILON)
     distance2 = max(_safe_positive(distance2), EPSILON)
     cost = _safe_positive(package.budget)
     duration = max(_safe_positive(package.days), EPSILON)
@@ -196,7 +197,7 @@ def recommend_packages(user_context, packages, k=5, top_n=5):
 
         dist = compute_weighted_distance(user_context, package, context_weights, distance2)
 
-        ce, te = compute_efficiencies(package, distance2)
+        ce, te = compute_efficiencies(package, user_context.get("distance"), distance2)
 
         scored.append((package, cps, dist, distance2, ce, te))
 
@@ -238,7 +239,13 @@ def _destination_distance2(destination):
     return 50.0
 
 
-def recommend_destinations_direct(user_prefs, user_context, destinations, top_n=5):
+def recommend_destinations_direct(
+    user_prefs=None,
+    user_context=None,
+    destinations=None,
+    top_n=5,
+    **kwargs,
+):
     """
     Recommend destinations based on user preferences and proximity.
     
@@ -247,6 +254,18 @@ def recommend_destinations_direct(user_prefs, user_context, destinations, top_n=
     destinations: QuerySet of Destination objects
     top_n: number of results to return
     """
+
+    if user_prefs is None:
+        user_prefs = kwargs.get("user_destination_preferences", {})
+
+    if user_context is None:
+        user_context = kwargs.get("user_context", {})
+
+    if destinations is None:
+        destinations = kwargs.get("destinations", [])
+
+    if "destination_top_n" in kwargs and kwargs["destination_top_n"]:
+        top_n = kwargs["destination_top_n"]
 
     user_lat = _safe_float(user_context.get("user_latitude"))
     user_lon = _safe_float(user_context.get("user_longitude"))

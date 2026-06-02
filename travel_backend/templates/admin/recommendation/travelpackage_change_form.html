@@ -216,9 +216,16 @@
       
       // Update form field
       var inputId = cached.wrapper.getAttribute('data-input-id');
+      console.log('Setting input value for:', inputId, 'to:', dest.id);
       var inputElement = document.getElementById(inputId);
       if (inputElement) {
         inputElement.value = dest.id;
+        // Trigger change event for Django form validation
+        inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('Input value set to:', inputElement.value);
+      } else {
+        console.error('Input element not found with id:', inputId);
       }
       
       // Update display
