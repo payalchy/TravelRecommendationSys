@@ -614,14 +614,6 @@ class DestinationPackagesAPIView(APIView):
             )
 
             for itinerary in itineraries:
-
-                itinerary_image = None
-
-                if itinerary.image:
-                    itinerary_image = request.build_absolute_uri(
-                        itinerary.image.url
-                    )
-
                 itinerary_data.append(
                     {
                         "day_number": itinerary.day_number,
@@ -631,7 +623,6 @@ class DestinationPackagesAPIView(APIView):
                             else None
                         ),
                         "description": itinerary.description,
-                        "image": itinerary_image,
                     }
                 )
 

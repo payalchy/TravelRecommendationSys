@@ -137,6 +137,22 @@ class Destination(models.Model):
     def __str__(self):
         return f"{self.pName} ({self.province})"
 
+
+class StartLocation(models.Model):
+    pName = models.CharField(max_length=255, null=True, blank=True)
+    province = models.CharField(max_length=50, null=True, blank=True)
+    latitude = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)]
+    )
+    longitude = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)]
+    )
+
+    def __str__(self):
+        return f"{self.pName} ({self.province})"
+
 def validate_image(image):
     if image.size > 2 * 1024 * 1024:  
         raise ValidationError("Image size should not exceed 2MB")
@@ -170,7 +186,7 @@ class TravelPackage(models.Model):
     )
 
     
-    start_location = models.ForeignKey('Destination',on_delete=models.SET_NULL,null=True,related_name='start_packages')
+    start_location = models.ForeignKey('StartLocation', on_delete=models.SET_NULL, null=True, related_name='start_packages')
     end_location = models.ForeignKey('Destination',on_delete=models.SET_NULL,null=True,related_name='end_packages')
     budget = models.FloatField(validators=[MinValueValidator(0)])
     distance_km = models.FloatField(validators=[MinValueValidator(0)], default=0)
@@ -189,8 +205,6 @@ class PackageItinerary(models.Model):
     day_number = models.IntegerField()
     destination = models.ForeignKey('Destination', on_delete=models.CASCADE)
     description = models.TextField(default="")
-
-    image = models.URLField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
         # Auto-fill day_number if not provided

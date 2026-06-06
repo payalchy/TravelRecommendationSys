@@ -14,7 +14,7 @@ import json
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .models import Destination, TravelPackage, PackageItinerary
+from .models import Destination, StartLocation, TravelPackage, PackageItinerary
 
 admin.site.site_header = "Travel Management Admin"
 admin.site.site_title = "Travel Admin"
@@ -406,15 +406,15 @@ class PackageItineraryInline(admin.TabularInline):
     autocomplete_fields = ["destination"]
     can_delete = True
     ordering = ("day_number",)
-    fields = ('day_number', 'destination', 'description', 'image')
+    fields = ('day_number', 'destination', 'description')
     
     def get_extra(self, request, obj=None, **kwargs):
         """Allow extra rows based on package duration"""
         if obj:
-            # Number of extra rows = remaining days not yet assigned
-            assigned_days = obj.itinerary.count()
-            remaining = max(0, obj.days - assigned_days)
-            return min(1, remaining)  # Show 1 extra row if days remain
+            # Keep a small buffer of blank rows so multiple stops can be added for a day.
+            assigned_rows = obj.itinerary.count()
+            remaining_rows = max(0, obj.days - assigned_rows)
+            return min(3, max(1, remaining_rows))
         return 0
     
     def formset_valid(self, formset):
@@ -461,10 +461,10 @@ class TravelPackageAdmin(admin.ModelAdmin):
         if db_field.name == "start_location":
             # Return a form field directly so Django does not wrap it with
             # RelatedFieldWidgetWrapper (which adds the green plus icon).
-            create_pin_url = reverse('admin:recommendation_travelpackage_create_pin_destination')
+            create_pin_url = reverse('admin:recommendation_travelpackage_create_pin_start_location')
             return db_field.formfield(
                 widget=DestinationMapPickerWidget(
-                    destinations=Destination.objects.filter(
+                    destinations=StartLocation.objects.filter(
                         latitude__isnull=False,
                         longitude__isnull=False,
                     ).order_by("pName"),
@@ -476,11 +476,11 @@ class TravelPackageAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom = [
-            path('create-pin-destination/', self.admin_site.admin_view(self.create_pin_destination), name='recommendation_travelpackage_create_pin_destination'),
+            path('create-pin-start-location/', self.admin_site.admin_view(self.create_pin_start_location), name='recommendation_travelpackage_create_pin_start_location'),
         ]
         return custom + urls
 
-    def create_pin_destination(self, request):
+    def create_pin_start_location(self, request):
         if not request.user.is_staff:
             return HttpResponseForbidden('Forbidden')
 
@@ -492,17 +492,29 @@ class TravelPackageAdmin(admin.ModelAdmin):
             lat = float(payload.get('latitude'))
             lng = float(payload.get('longitude'))
             name = payload.get('name') or f'Pinned location {lat:.5f},{lng:.5f}'
+            province = payload.get('province') or ''
         except Exception:
             return HttpResponseBadRequest('Invalid payload')
 
-        dest = Destination.objects.create(pName=name, province='', latitude=lat, longitude=lng)
-        return JsonResponse({'id': dest.id, 'name': dest.pName, 'province': dest.province or '', 'latitude': dest.latitude, 'longitude': dest.longitude})
+        location = StartLocation.objects.create(pName=name, province=province, latitude=lat, longitude=lng)
+        return JsonResponse({'id': location.id, 'name': location.pName, 'province': location.province or '', 'latitude': location.latitude, 'longitude': location.longitude})
 
     def get_exclude(self, request, obj=None):
         # Hide distance_km only on the add form.
         if obj is None:
             return ("distance_km",)
         return super().get_exclude(request, obj)
+
+    def save_formset(self, request, form, formset, change):
+        response = super().save_formset(request, form, formset, change)
+
+        if formset.model is PackageItinerary and getattr(form.instance, "pk", None):
+            last_stop = form.instance.itinerary.order_by("-day_number", "-id").first()
+            if last_stop and last_stop.destination_id:
+                form.instance.end_location = last_stop.destination
+                form.instance.save(update_fields=["end_location"])
+
+        return response
 
     @admin.display(description="Package")
     def image_preview(self, obj):
