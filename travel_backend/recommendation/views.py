@@ -583,12 +583,13 @@ class DestinationPackagesAPIView(APIView):
 
         packages = (
             TravelPackage.objects.filter(
-                end_location_id=destination_id
+                itinerary__destination_id=destination_id
             )
             .select_related(
                 "start_location",
                 "end_location",
             )
+            .distinct()
             .all()
         )
 

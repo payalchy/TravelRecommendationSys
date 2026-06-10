@@ -293,7 +293,7 @@ export default function PreferencesPage() {
               id="budget"
               name="budget"
               min="0"
-              step="100"
+              step="any"
               value={formData.budget}
               onChange={handleChange}
               placeholder="Enter your budget in NPR"
