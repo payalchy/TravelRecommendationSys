@@ -124,29 +124,21 @@ export default function DestinationCard({ destination, index }) {
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 mt-5">
-          <button
-            type="button"
-            className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:border-blue-600 hover:text-blue-600 transition"
-          >
-             Wishlist
-          </button>
-
-          <button
-            type="button"
-            className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:border-blue-600 hover:text-blue-600 transition"
-          >
-            Visited
-          </button>
-
-          <button
-            type="button"
-            className="rounded-full border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:border-blue-600 hover:text-blue-600 transition"
-          >
-             Interested
-          </button>
+      {/* Final Score */}
+      <div className="border-t border-gray-100 px-6 py-4 bg-white flex justify-between items-center">
+        <div>
+          <p className="text-xs text-gray-500 font-semibold">Final Score</p>
+          <p className="text-2xl font-bold text-blue-600">
+            {destination.final_score?.toFixed(2) || 'N/A'}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-gray-500 font-semibold">Distance</p>
+          <p className="text-xl font-bold text-gray-900">
+            {destination.distance_km?.toFixed(2) || 'N/A'} km
+          </p>
         </div>
       </div>
     </div>

@@ -271,10 +271,16 @@ export default function PreferencesPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Travel Preferences</h1>
-        <p className="text-gray-600 mb-8">
-          Help us understand your travel style so we can recommend the best destinations for you.
-        </p>
+        <div className="flex justify-between items-center mb-2">
+          <h1 className="text-3xl font-bold text-gray-900">Travel Preferences</h1>
+          <button 
+            type="button"
+            onClick={() => navigate('/home')}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition flex items-center gap-2"
+          >
+            Home
+          </button>
+        </div>
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
