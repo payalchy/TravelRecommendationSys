@@ -91,7 +91,7 @@ export const recommendationAPI = {
     api.get('/users/profile/history/'),
 
   getUserSearchHistory: () =>
-    api.get('/users/profile/search-history/'),
+    api.get('/users/search-history/'),
 
   // Search destinations by name, city, or tags
   searchDestinations: (query) =>

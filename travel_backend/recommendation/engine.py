@@ -298,9 +298,10 @@ def recommend_destinations_direct(
         else:
             distance_km = 100.0  # Default distance if coordinates missing
 
-        # FILTER: Only include destinations within 100 km radius
-        if distance_km > 100.0:
-            continue
+        # Keep all destinations in the ranking pool so proximity can influence results
+        # without excluding otherwise relevant matches too early.
+        if distance_km is None:
+            distance_km = 100.0
 
         # Geo score: closer is better (inverted distance formula)
         # At 0km: geo_score = 1.0

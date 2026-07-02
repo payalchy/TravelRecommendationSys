@@ -75,53 +75,58 @@ class Destination(models.Model):
         ]
     
     def _fetch_coordinates_from_nominatim(self):
-        """Fetch coordinates from Google Maps API (primary) or OpenStreetMap Nominatim API (fallback)"""
+        """Fetch the most relevant coordinates for a destination using a Nepal-focused geocoding query."""
         if not self.pName:
             return None
-        
-        # Try Google Maps API first
-        google_api_key = getattr(settings, 'GOOGLE_MAPS_API_KEY', None)
-        if google_api_key:
-            try:
-                gmaps = googlemaps.Client(key=google_api_key)
-                
-                # Build query - include province if available
-                query = self.pName
-                province = str(self.province).strip() if self.province is not None else ''
-                if province and not province.isdigit():
-                    query = f"{self.pName}, {province}"
-                query = f"{query}, Nepal"
-                
-                geocode_result = gmaps.geocode(query)
-                
-                if geocode_result and len(geocode_result) > 0:
-                    location = geocode_result[0]['geometry']['location']
-                    return float(location['lat']), float(location['lng'])
-            except Exception as e:
-                print(f"[Google Maps Error] Failed for {self.pName}: {str(e)}")
-        
-        # Fallback to Nominatim if Google Maps fails or no API key
+
+        parts = [str(self.pName).strip()]
+        province = str(self.province).strip() if self.province is not None else ''
+        if province and not province.isdigit():
+            parts.append(province)
+        if self.city:
+            parts.append(str(self.city).strip())
+        parts.append("Nepal")
+
+        query = ", ".join(part for part in parts if part)
+
         try:
-            # Build query - skip province if it's just a number
-            query = self.pName
-            province = str(self.province).strip() if self.province is not None else ''
-            if province and not province.isdigit():
-                query = f"{self.pName}, {province}"
-            query = f"{query}, Nepal"
-            
-            params = urlencode({"q": query, "format": "json", "limit": 1})
+            params = urlencode({
+                "q": query,
+                "format": "json",
+                "limit": 5,
+                "addressdetails": 1,
+            })
             url = f"https://nominatim.openstreetmap.org/search?{params}"
             request_obj = Request(url, headers={"User-Agent": "Django-TravelRecommendation/1.0"})
-            
+
             with urlopen(request_obj, timeout=10) as response:
                 payload = json.loads(response.read().decode("utf-8"))
-            
-            if payload and len(payload) > 0:
-                first = payload[0]
-                return float(first.get("lat")), float(first.get("lon"))
+
+            if payload:
+                preferred = None
+                for item in payload:
+                    display_name = str(item.get("display_name", "")).lower()
+                    if "nepal" not in display_name:
+                        continue
+
+                    importance = float(item.get("importance", 0) or 0)
+                    class_type = str(item.get("class", "")).lower()
+                    type_name = str(item.get("type", "")).lower()
+
+                    is_place_like = class_type in {"place", "boundary", "administrative"} or type_name in {"city", "town", "village", "administrative", "administrative_area_level_1"}
+                    if not is_place_like:
+                        continue
+
+                    if preferred is None or importance > float(preferred.get("importance", 0) or 0):
+                        preferred = item
+
+                if preferred is None:
+                    preferred = payload[0]
+
+                return float(preferred.get("lat")), float(preferred.get("lon"))
         except Exception as e:
             print(f"[Nominatim Error] Failed for {self.pName}: {str(e)}")
-        
+
         return None
     
     def save(self, *args, **kwargs):

@@ -119,6 +119,6 @@ class SearchHistoryListAPIView(generics.ListAPIView):
         serializer = SearchHistorySerializer(history, many=True)
 
         return Response(
-            {"results": serializer.data},
+            serializer.data,
             status=status.HTTP_200_OK
         )

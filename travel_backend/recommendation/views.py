@@ -1,9 +1,5 @@
-from django.contrib import admin
-from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
 import json
-from django.shortcuts import render
-from django.urls import reverse
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -131,35 +127,6 @@ def _province_filter_query(provinces):
         if normalized:
             query |= Q(province__iexact=normalized)
     return query
-
-
-# ---------------- ADMIN DASHBOARD ----------------
-
-@staff_member_required
-def admin_dashboard(request):
-    recent_packages = (
-        TravelPackage.objects.select_related("start_location", "end_location")
-        .order_by("-id")[:8]
-    )
-
-    context = {
-        **admin.site.each_context(request),
-        "total_destinations": Destination.objects.count(),
-        "total_packages": TravelPackage.objects.count(),
-        "total_itineraries": PackageItinerary.objects.count(),
-        "recent_packages": recent_packages,
-        "destination_changelist_url": reverse(
-            "admin:recommendation_destination_changelist"
-        ),
-        "package_changelist_url": reverse(
-            "admin:recommendation_travelpackage_changelist"
-        ),
-        "itinerary_changelist_url": reverse(
-            "admin:recommendation_packageitinerary_changelist"
-        ),
-    }
-
-    return render(request, "admin/custom_dashboard.html", context)
 
 
 # ---------------- RECOMMENDATION API ----------------
@@ -351,6 +318,7 @@ class RecommendationAPIView(APIView):
 
         SearchHistory.objects.create(
             user=request.user,
+            query="recommendation_search",
             search_payload={
                 "budget": user_budget,
                 "duration": user_duration,
@@ -517,7 +485,8 @@ class DestinationGeocodeAPIView(APIView):
             {
                 "q": query,
                 "format": "json",
-                "limit": 1,
+                "limit": 5,
+                "addressdetails": 1,
             }
         )
 
@@ -552,14 +521,28 @@ class DestinationGeocodeAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        first = payload[0]
+        preferred = None
+        for item in payload:
+            display_name = str(item.get("display_name", "")).lower()
+            if "nepal" not in display_name:
+                continue
+
+            if preferred is None:
+                preferred = item
+                continue
+
+            if float(item.get("importance", 0) or 0) > float(preferred.get("importance", 0) or 0):
+                preferred = item
+
+        if preferred is None:
+            preferred = payload[0]
 
         return Response(
             {
                 "name": destination_name,
-                "latitude": float(first.get("lat")),
-                "longitude": float(first.get("lon")),
-                "display_name": first.get("display_name"),
+                "latitude": float(preferred.get("lat")),
+                "longitude": float(preferred.get("lon")),
+                "display_name": preferred.get("display_name"),
             },
             status=status.HTTP_200_OK,
         )

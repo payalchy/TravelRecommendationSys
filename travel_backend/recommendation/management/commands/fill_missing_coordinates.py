@@ -170,40 +170,17 @@ class Command(BaseCommand):
         return best, best_score
 
     def _fetch_coordinates(self, destination, delay, max_retries):
-        """Fetch coordinates for a destination using Nominatim.
-        
+        """Fetch coordinates for a destination using the improved destination geocoder.
+
         Returns (lat, lon, query) on success, None on failure.
         """
-        if destination.city:
-            # Try destination name + city first for better precision
-            queries = [
-                f"{destination.pName}, {destination.city}, Nepal",
-                f"{destination.pName}, Nepal",
-            ]
-        else:
-            queries = [f"{destination.pName}, Nepal"]
+        if not destination.pName:
+            return None
 
-        if destination.province:
-            # Insert province-based query early
-            queries.insert(0, f"{destination.pName}, {destination.province}, Nepal")
-
-        for query in queries:
-            try:
-                payload = self._fetch_payload(query, delay, max_retries)
-            except HTTPError as exc:
-                # Fast mode: if provider keeps rate-limiting, skip to nearby-name fallback.
-                if exc.code == 429:
-                    return None
-                raise
-
-            if not payload:
-                continue
-
-            first = payload[0]
-            try:
-                return float(first.get("lat")), float(first.get("lon")), query
-            except (TypeError, ValueError):
-                continue
+        coords = destination._fetch_coordinates_from_nominatim()
+        if coords:
+            lat, lon = coords
+            return float(lat), float(lon), "improved_geocoder"
 
         return None
 

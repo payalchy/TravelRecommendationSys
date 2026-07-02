@@ -16,6 +16,7 @@ export default function HomePage() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [distanceLabels, setDistanceLabels] = useState({});
 
   const normalizeProvinceList = (value) => {
     if (Array.isArray(value)) {
@@ -50,6 +51,52 @@ export default function HomePage() {
     }
   }, [user]);
 
+  const getDrivingDistanceLabel = async (destination, userLat, userLon) => {
+    if (!destination?.latitude || !destination?.longitude || !userLat || !userLon) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${userLat},${userLon}&destination=${destination.latitude},${destination.longitude}&mode=driving&units=metric&key=AIzaSyBXoZWW9Z3l8yOtBMt-uHstiTxmHaLWHpk`
+      );
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.routes?.[0]?.legs?.[0]?.distance?.value) {
+        const km = (data.routes[0].legs[0].distance.value / 1000).toFixed(1);
+        return `${km} km`;
+      }
+    } catch (error) {
+      console.error('Distance lookup failed:', error);
+    }
+
+    return null;
+  };
+
+  const loadDrivingDistances = async (items) => {
+    setDistanceLabels({});
+
+    const userLat = user?.latitude || 27.7172;
+    const userLon = user?.longitude || 85.324;
+
+    const results = await Promise.all(
+      items.map(async (destination) => {
+        const distanceText = await getDrivingDistanceLabel(destination, userLat, userLon);
+        const destinationId = destination.destination_id || destination.id;
+        return [destinationId, distanceText];
+      })
+    );
+
+    const nextDistances = {};
+    results.forEach(([destinationId, distanceText]) => {
+      if (destinationId && distanceText) {
+        nextDistances[destinationId] = distanceText;
+      }
+    });
+
+    setDistanceLabels(nextDistances);
+  };
+
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
@@ -81,9 +128,12 @@ export default function HomePage() {
           payload
         );
 
-      setDestinations(
-        response.data.destination_results || []
-      );
+      const recommendations = response.data.destination_results || [];
+      setDestinations(recommendations);
+
+      if (recommendations.length > 0) {
+        await loadDrivingDistances(recommendations);
+      }
 
     } catch (err) {
 
@@ -394,14 +444,19 @@ export default function HomePage() {
 
                   <div className="border-t border-gray-100 px-5 py-4">
 
-                    {destination.latitude != null &&
-                      destination.longitude != null && (
-                        <p className="text-sm text-gray-500 mb-4">
-                          ({destination.latitude.toFixed(4)},
-                          {' '}
-                          {destination.longitude.toFixed(4)})
-                        </p>
-                      )}
+                    <p className="text-sm text-gray-500 mb-4">
+                      {(() => {
+                        const destinationId = destination.destination_id || destination.id;
+                        const label = distanceLabels[destinationId];
+                        if (label) {
+                          return `Driving distance: ${label}`;
+                        }
+                        if (destination.distance_km != null) {
+                          return `Approx. straight-line distance: ${destination.distance_km.toFixed(2)} km`;
+                        }
+                        return 'Distance unavailable';
+                      })()}
+                    </p>
 
                   </div>
 
