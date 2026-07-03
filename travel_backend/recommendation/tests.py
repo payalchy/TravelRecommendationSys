@@ -5,8 +5,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from recommendation.models import Destination, TravelPackage
-from recommendation.engine import recommend_destinations_direct
+from recommendation.models import Destination, TravelPackage, PackageItinerary, StartLocation
+from recommendation.engine import recommend_destinations_direct, recommend_packages
 from users.models import TravelStyle, UserProfile
 
 
@@ -30,7 +30,7 @@ class RecommendationAPITests(APITestCase):
 
         self.client.force_authenticate(user=self.user)
 
-        self.start = Destination.objects.create(
+        self.start = StartLocation.objects.create(
             pName="Kathmandu",
             province="Bagmati",
             latitude=27.7172,
@@ -59,7 +59,7 @@ class RecommendationAPITests(APITestCase):
             history=2.8,
         )
 
-        TravelPackage.objects.create(
+        self.package_adventure = TravelPackage.objects.create(
             name="Balanced Adventure",
             package_type="adventure",
             transport_mode="bus",
@@ -71,7 +71,7 @@ class RecommendationAPITests(APITestCase):
             number_of_travelers=2,
             description="A balanced route",
         )
-        TravelPackage.objects.create(
+        self.package_budget = TravelPackage.objects.create(
             name="Budget Tour",
             package_type="tour",
             transport_mode="bus",
@@ -82,6 +82,19 @@ class RecommendationAPITests(APITestCase):
             days=3,
             number_of_travelers=2,
             description="Affordable package",
+        )
+
+        PackageItinerary.objects.create(
+            package=self.package_adventure,
+            destination=self.end_1,
+            day_number=1,
+            description="Day 1 itinerary",
+        )
+        PackageItinerary.objects.create(
+            package=self.package_budget,
+            destination=self.end_1,
+            day_number=1,
+            description="Day 1 itinerary",
         )
 
     def test_recommendation_uses_request_location_and_returns_destinations(self):
@@ -113,6 +126,28 @@ class RecommendationAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
+
+    def test_destination_packages_are_ranked_by_recommendation_engine(self):
+        url = reverse("destination-packages", args=[self.end_1.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        user_context = {
+            "budget": self.profile.budget,
+            "distance": 100,
+            "duration": self.profile.preferred_duration,
+            "travel_type": "adventure",
+        }
+        scored_packages = recommend_packages(
+            user_context,
+            [self.package_adventure, self.package_budget],
+            top_n=5,
+        )
+        expected_order = [item.package.name for item in scored_packages]
+        actual_order = [pkg["name"] for pkg in response.data["packages"]]
+
+        self.assertEqual(actual_order, expected_order)
 
     @patch("recommendation.views.urlopen")
     def test_destination_geocode_endpoint_returns_coordinates(self, mock_urlopen):

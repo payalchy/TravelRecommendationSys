@@ -69,13 +69,15 @@ export default function ProfilePage() {
               <h2 className="text-2xl font-semibold text-gray-900">Search History</h2>
               <p className="text-gray-600 mt-1">Saved recommendation searches for this account.</p>
             </div>
-            <button
-              type="button"
-              onClick={fetchSearchHistory}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-            >
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchSearchHistory}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
           {error && (

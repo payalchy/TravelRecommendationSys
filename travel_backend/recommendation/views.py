@@ -578,7 +578,34 @@ class DestinationPackagesAPIView(APIView):
 
         package_data = []
 
-        for pkg in packages:
+        try:
+            profile = request.user.userprofile
+        except Exception:
+            profile = None
+
+        user_context = {
+            "budget": getattr(profile, "budget", None) if profile else None,
+            "distance": 100,
+            "duration": getattr(profile, "preferred_duration", None) if profile else None,
+            "travel_type": (
+                profile.preferred_travel_style.first().name
+                if profile and profile.preferred_travel_style.exists()
+                else ""
+            ),
+        }
+
+        ranked_packages = []
+        if packages:
+            ranked_packages = recommend_packages(
+                user_context,
+                list(packages),
+                k=max(1, len(packages)),
+                top_n=max(1, len(packages)),
+            )
+
+        package_items = [item.package for item in ranked_packages] if ranked_packages else list(packages)
+
+        for pkg in package_items:
 
             # ---------------- SAFE FIELD ACCESS ----------------
 

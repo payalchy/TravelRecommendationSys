@@ -4,7 +4,7 @@ from .views import (
     UserProfileView,
     TravelStyleListView,
     UserProfileHistoryView,
-    SearchHistoryListAPIView
+    SearchHistoryListAPIView,
 )
 
 urlpatterns = [
