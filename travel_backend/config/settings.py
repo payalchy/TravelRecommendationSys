@@ -5,12 +5,14 @@ Django settings for config project.
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = 'django-insecure-6z3mn7qu1rfvcfq0a8mv#t7ukpr4#%f(tq_m3jj@ba*o#ca!^0'
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 
@@ -84,13 +86,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # DATABASE
 # =========================
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'travel_db',
-        'USER': 'travel_user',
-        'PASSWORD': 'travel@123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
     }
 }
 
@@ -161,4 +163,4 @@ SIMPLE_JWT = {
 # Set your Google Maps API key here or as an environment variable
 # Get your API key from: https://developers.google.com/maps/documentation/geocoding/get-api-key
 # Set it in environment variable GOOGLE_MAPS_API_KEY or directly below
-GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', 'AIzaSyBXoZWW9Z3l8yOtBMt-uHstiTxmHaLWHpk')
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
