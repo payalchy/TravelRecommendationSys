@@ -328,6 +328,62 @@ input[type="button"]:hover,
   color: var(--text-muted);
 }
 
+/* Make autocomplete dropdown text readable in admin dark theme */
+.select2-container--admin-autocomplete .select2-selection--single,
+.select2-container--admin-autocomplete .select2-selection--multiple,
+.select2-container--admin-autocomplete .select2-selection,
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple,
+.select2-container--default .select2-selection {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered,
+.select2-container--admin-autocomplete .select2-selection__rendered *,
+.select2-container--admin-autocomplete .select2-selection__placeholder,
+.select2-container--admin-autocomplete .select2-selection__choice,
+.select2-container--admin-autocomplete .select2-search__field,
+.select2-container--admin-autocomplete .select2-results__option,
+.select2-container--admin-autocomplete .select2-results__option[aria-selected],
+.select2-container--admin-autocomplete .select2-results__option--highlighted,
+.select2-container .select2-selection__rendered,
+.select2-container .select2-selection__rendered *,
+.select2-container .select2-selection__placeholder,
+.select2-container .select2-selection__choice,
+.select2-container .select2-search__field,
+.select2-container .select2-results__option,
+.select2-container .select2-results__option[aria-selected],
+.select2-container .select2-results__option--highlighted,
+.select2-container .select2-dropdown,
+.select2-container .select2-dropdown--above,
+.select2-container .select2-dropdown--below,
+.ui-autocomplete,
+.ui-autocomplete li,
+.ui-autocomplete .ui-menu-item,
+.ui-autocomplete .ui-menu-item-wrapper,
+.ui-autocomplete .ui-menu-item .ui-menu-item-wrapper,
+.autocomplete {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered,
+.select2-container--default .select2-selection__rendered {
+  color: #0f172a !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered *,
+.select2-container--default .select2-selection__rendered * {
+  color: #0f172a !important;
+}
+
+.ui-autocomplete .ui-menu-item-wrapper:hover,
+.select2-results__option--highlighted {
+  background: #ebf4ff !important;
+}
+
 @media (max-width: 900px) {
   .tm-dashboard-hero,
   .tm-dashboard-grid {

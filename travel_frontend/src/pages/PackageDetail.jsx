@@ -180,9 +180,9 @@ export default function PackageDetail() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#f7f9fc",
+    background: "#eef2ff",
     fontFamily: "'Poppins', 'Segoe UI', sans-serif",
-    color: "#1f2a44",
+    color: "#0f172a",
   },
 
   navbar: {
@@ -225,13 +225,13 @@ const styles = {
   mainTitle: {
     margin: "0 0 6px",
     fontSize: "28px",
-    color: "#1d3557",
+    color: "#0f172a",
     fontWeight: "700",
   },
 
   subtitle: {
     margin: 0,
-    color: "#52627c",
+    color: "#475569",
     fontSize: "14px",
   },
 
@@ -245,7 +245,7 @@ const styles = {
     marginBottom: "24px",
     borderRadius: "12px",
     overflow: "hidden",
-    boxShadow: "0 6px 18px rgba(24, 59, 102, 0.1)",
+    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
   },
 
   heroImage: {
@@ -257,43 +257,43 @@ const styles = {
 
   infoCard: {
     background: "#ffffff",
-    border: "1px solid #dbe4f0",
+    border: "1px solid #e2e8f0",
     borderRadius: "12px",
     padding: "20px",
     marginBottom: "24px",
-    boxShadow: "0 6px 18px rgba(24, 59, 102, 0.08)",
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.05)",
   },
 
   cardTitle: {
     margin: "0 0 8px",
     fontSize: "20px",
     fontWeight: "700",
-    color: "#1d3557",
+    color: "#0f172a",
   },
 
   duration: {
     margin: "0 0 4px",
     fontSize: "14px",
-    color: "#52627c",
+    color: "#475569",
   },
 
   price: {
     margin: "0 0 12px",
     fontSize: "14px",
     fontWeight: "600",
-    color: "#2f6fed",
+    color: "#0f766e",
   },
 
   description: {
     margin: 0,
     fontSize: "14px",
-    lineHeight: "1.6",
-    color: "#52627c",
+    lineHeight: "1.75",
+    color: "#475569",
   },
 
   mapButton: {
     marginTop: "12px",
-    background: "#16a34a",
+    background: "#2563eb",
     color: "#ffffff",
     border: "none",
     borderRadius: "10px",
@@ -305,10 +305,10 @@ const styles = {
 
   itineraryCard: {
     background: "#ffffff",
-    border: "1px solid #dbe4f0",
+    border: "1px solid #e2e8f0",
     borderRadius: "12px",
     padding: "20px",
-    boxShadow: "0 6px 18px rgba(24, 59, 102, 0.08)",
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.05)",
   },
 
   includesExcludes: {
@@ -319,8 +319,8 @@ const styles = {
   },
 
   includesBox: {
-    background: "#f0fdf4",
-    border: "1px solid #86efac",
+    background: "#f8fafc",
+    border: "1px solid #cbd5e1",
     borderRadius: "10px",
     padding: "14px",
   },
@@ -329,14 +329,14 @@ const styles = {
     margin: "0 0 10px",
     fontSize: "14px",
     fontWeight: "700",
-    color: "#15803d",
+    color: "#0f172a",
   },
 
   includesList: {
     margin: 0,
     paddingLeft: "20px",
     fontSize: "13px",
-    color: "#166534",
+    color: "#334155",
     lineHeight: "1.5",
     textAlign: "left",
     listStyleType: "disc",
@@ -344,7 +344,7 @@ const styles = {
 
   excludesBox: {
     background: "#fef2f2",
-    border: "1px solid #fca5a5",
+    border: "1px solid #fecaca",
     borderRadius: "10px",
     padding: "14px",
   },
@@ -374,12 +374,12 @@ const styles = {
     margin: "0 0 16px",
     fontSize: "16px",
     fontWeight: "600",
-    color: "#1d3557",
+    color: "#0f172a",
   },
 
   timelineItem: {
     marginBottom: "0",
-    borderLeft: "2px solid #bcd0f6",
+    borderLeft: "2px solid #cbd5e1",
     paddingLeft: "0",
   },
 
@@ -388,8 +388,8 @@ const styles = {
     alignItems: "flex-start",
     gap: "12px",
     padding: "12px 14px",
-    background: "#f9fbff",
-    borderBottom: "1px solid #e2e8f4",
+    background: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
     cursor: "pointer",
     transition: "background 0.2s ease",
   },
@@ -398,7 +398,7 @@ const styles = {
     width: "12px",
     height: "12px",
     borderRadius: "50%",
-    background: "#2f6fed",
+    background: "#2563eb",
     marginLeft: "-7px",
     marginTop: "2px",
     flexShrink: 0,
@@ -414,23 +414,23 @@ const styles = {
   dayLabel: {
     fontSize: "14px",
     fontWeight: "700",
-    color: "#1d3557",
+    color: "#0f172a",
   },
 
   dayText: {
     fontSize: "13px",
-    color: "#52627c",
+    color: "#475569",
     lineHeight: "1.5",
   },
 
   noData: {
     padding: "12px",
-    color: "#52627c",
+    color: "#475569",
     fontSize: "13px",
   },
 
   detailsButton: {
-    background: "#2f6fed",
+    background: "#334155",
     color: "#ffffff",
     border: "none",
     borderRadius: "10px",
@@ -453,7 +453,7 @@ const styles = {
   },
 
   backButton: {
-    background: "#2f6fed",
+    background: "#334155",
     color: "#ffffff",
     border: "none",
     borderRadius: "8px",

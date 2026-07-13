@@ -545,11 +545,6 @@ export default function HomePage() {
                               {destination.province}
                             </p>
 
-                            <p className="mt-2 text-xs text-gray-400">
-                              {destination.distance_km != null
-                                ? `Approx. straight-line distance: ${destination.distance_km.toFixed(2)} km`
-                                : 'Distance unavailable'}
-                            </p>
                           </div>
                         </div>
 
@@ -570,12 +565,6 @@ export default function HomePage() {
                       </div>
 
                       <div className="border-t border-gray-100 px-5 py-4">
-                        <div className="mb-3 text-xs text-gray-400">
-                          {destination.distance_km != null
-                            ? `Approx. straight-line distance: ${destination.distance_km.toFixed(2)} km`
-                            : 'Distance unavailable'}
-                        </div>
-
                         <div className="flex items-center justify-end">
                           <button
                             type="button"

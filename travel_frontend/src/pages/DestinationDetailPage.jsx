@@ -113,14 +113,6 @@ export default function DestinationDetailPage() {
               </div>
 
               {/* View on Map Button */}
-              {user && user.latitude && user.longitude && destination.latitude && destination.longitude && (
-                <button
-                  onClick={handleViewMap}
-                  className="w-fit px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm"
-                >
-                  View Route on Google Maps
-                </button>
-              )}
 
               {/* Destination Ratings */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
@@ -296,12 +288,12 @@ export default function DestinationDetailPage() {
                     {/* Locations */}
                     <div className="border-t pt-4 mb-6">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
+                        <span className="text-black">
                           <strong>From:</strong>{' '}
                           {pkg.start_location || 'N/A'}
                         </span>
 
-                        <span className="text-gray-600">
+                        <span className="text-black">
                           <strong>To:</strong>{' '}
                           {pkg.end_location || 'N/A'}
                         </span>
@@ -386,7 +378,7 @@ export default function DestinationDetailPage() {
                                         {day.day_number}
                                       </div>
 
-                                      <h5 className="font-bold text-lg text-gray-900">
+                                      <h5 className="font-bold text-lg text-black">
                                         {day.destination}
                                       </h5>
                                     </div>
