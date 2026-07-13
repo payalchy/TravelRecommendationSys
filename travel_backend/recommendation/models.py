@@ -1,12 +1,14 @@
+import math
+import json
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db.models.functions import Lower
 from django.db.models import Max
 from django.conf import settings
-import json
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 import googlemaps
 
 class Destination(models.Model):
@@ -201,6 +203,84 @@ class TravelPackage(models.Model):
     days = models.IntegerField(validators=[MinValueValidator(1)],default=1)
     includes = models.TextField(default="", blank=True, help_text="Enter items included in the package, one per line")
     excludes = models.TextField(default="", blank=True, help_text="Enter items excluded from the package, one per line")
+
+    @staticmethod
+    def _haversine_distance_km(lat1, lon1, lat2, lon2):
+        try:
+            lat1 = math.radians(float(lat1))
+            lon1 = math.radians(float(lon1))
+            lat2 = math.radians(float(lat2))
+            lon2 = math.radians(float(lon2))
+        except (TypeError, ValueError):
+            return 0.0
+
+        if lat1 == lat2 and lon1 == lon2:
+            return 0.0
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        )
+        c = 2 * math.asin(math.sqrt(a))
+        return 6371 * c
+
+    def calculate_distance_km(self):
+        start_location = self.start_location
+        itinerary = list(
+            self.itinerary.select_related("destination").order_by("day_number", "id")
+        )
+        total_distance = 0.0
+
+        start_lat = getattr(start_location, "latitude", None)
+        start_lon = getattr(start_location, "longitude", None)
+        previous_coords = None
+
+        for stop in itinerary:
+            destination = stop.destination
+            if destination is None:
+                continue
+
+            dest_lat = getattr(destination, "latitude", None)
+            dest_lon = getattr(destination, "longitude", None)
+            if dest_lat is None or dest_lon is None:
+                continue
+
+            if previous_coords is None and start_lat is not None and start_lon is not None:
+                total_distance += self._haversine_distance_km(
+                    start_lat,
+                    start_lon,
+                    dest_lat,
+                    dest_lon,
+                )
+
+            if previous_coords is not None:
+                total_distance += self._haversine_distance_km(
+                    previous_coords[0],
+                    previous_coords[1],
+                    dest_lat,
+                    dest_lon,
+                )
+
+            previous_coords = (dest_lat, dest_lon)
+
+        if total_distance == 0 and start_lat is not None and start_lon is not None and self.end_location:
+            end_lat = getattr(self.end_location, "latitude", None)
+            end_lon = getattr(self.end_location, "longitude", None)
+            if end_lat is not None and end_lon is not None:
+                total_distance = self._haversine_distance_km(
+                    start_lat,
+                    start_lon,
+                    end_lat,
+                    end_lon,
+                )
+
+        return round(total_distance, 2)
+
+    def save(self, *args, **kwargs):
+        self.distance_km = self.calculate_distance_km()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

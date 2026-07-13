@@ -93,14 +93,14 @@
 
 .tm-map-picker__label {
   font-size: 12px;
-  color: #6b7280;
+  color: #f3f4f7;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .tm-map-picker__summary strong {
   font-size: 14px;
-  color: #111827;
+  color: #e8eaed;
 }
 
 .tm-map-picker__hint {

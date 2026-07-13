@@ -1,3 +1,4 @@
+import math
 from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
@@ -148,6 +149,65 @@ class RecommendationAPITests(APITestCase):
         actual_order = [pkg["name"] for pkg in response.data["packages"]]
 
         self.assertEqual(actual_order, expected_order)
+
+    def test_package_distance_includes_start_location_and_itinerary_path(self):
+        package = TravelPackage.objects.create(
+            name="Route Distance Test",
+            package_type="tour",
+            transport_mode="bus",
+            start_location=self.start,
+            end_location=self.end_1,
+            budget=15000,
+            distance_km=0,
+            days=2,
+            number_of_travelers=2,
+            description="Distance test package",
+        )
+
+        PackageItinerary.objects.create(
+            package=package,
+            destination=self.end_1,
+            day_number=1,
+            description="Day 1 route",
+        )
+        PackageItinerary.objects.create(
+            package=package,
+            destination=self.end_2,
+            day_number=2,
+            description="Day 2 route",
+        )
+
+        package.refresh_from_db()
+
+        def haversine_km(lat1, lon1, lat2, lon2):
+            lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            c = 2 * math.asin(math.sqrt(a))
+            return 6371 * c
+
+        expected_total = (
+            haversine_km(
+                self.start.latitude,
+                self.start.longitude,
+                self.end_1.latitude,
+                self.end_1.longitude,
+            )
+            + haversine_km(
+                self.end_1.latitude,
+                self.end_1.longitude,
+                self.end_2.latitude,
+                self.end_2.longitude,
+            )
+        )
+
+        self.assertGreater(package.distance_km, 0)
+        self.assertAlmostEqual(
+            round(package.distance_km, 2),
+            round(expected_total, 2),
+            places=2,
+        )
 
     @patch("recommendation.views.urlopen")
     def test_destination_geocode_endpoint_returns_coordinates(self, mock_urlopen):

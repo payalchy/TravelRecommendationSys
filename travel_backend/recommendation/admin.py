@@ -143,11 +143,6 @@ class DestinationMapPickerWidget(forms.Widget):
         hidden_input = forms.HiddenInput().render(name, selected_value, {"id": input_id})
         return format_html(
             '{}<div class="tm-map-picker" data-map-picker data-input-id="{}" data-selected-id="{}" data-selected-label="{}" data-destinations="{}" data-google-api-key="{}" data-create-pin-url="{}">'
-            '<div class="tm-map-picker__search-section">'
-            '<input type="text" class="tm-map-picker__search-input" placeholder="Search location (e.g., Kathmandu, Pokhara)..." data-search-input />'
-            '<div class="tm-map-picker__search-results" data-search-results></div>'
-            '</div>'
-            '<div class="tm-map-picker__hint">Search for a location or click on the map to view it. The selected coordinates will be displayed below.</div>'
             '<div class="tm-map-picker__map" id="{}_map"></div>'
             '<div class="tm-map-picker__footer">'
             '<div class="tm-map-picker__summary">'
@@ -500,10 +495,8 @@ class TravelPackageAdmin(admin.ModelAdmin):
         return JsonResponse({'id': location.id, 'name': location.pName, 'province': location.province or '', 'latitude': location.latitude, 'longitude': location.longitude})
 
     def get_exclude(self, request, obj=None):
-        # Hide distance_km only on the add form.
-        if obj is None:
-            return ("distance_km",)
-        return super().get_exclude(request, obj)
+        # Hide distance_km on both add and edit forms since it's auto-calculated
+        return ("distance_km",)
 
     def save_formset(self, request, form, formset, change):
         response = super().save_formset(request, form, formset, change)
@@ -512,7 +505,9 @@ class TravelPackageAdmin(admin.ModelAdmin):
             last_stop = form.instance.itinerary.order_by("-day_number", "-id").first()
             if last_stop and last_stop.destination_id:
                 form.instance.end_location = last_stop.destination
-                form.instance.save(update_fields=["end_location"])
+
+            form.instance.distance_km = form.instance.calculate_distance_km()
+            form.instance.save(update_fields=["end_location", "distance_km"])
 
         return response
 
