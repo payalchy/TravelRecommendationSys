@@ -10,6 +10,9 @@ export default function HomePage() {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [suggestedDestinations, setSuggestedDestinations] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [suggestionsError, setSuggestionsError] = useState('');
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +51,7 @@ export default function HomePage() {
   useEffect(() => {
     if (user) {
       fetchRecommendations();
+      fetchYouMightAlsoLike();
     }
   }, [user]);
 
@@ -146,6 +150,25 @@ export default function HomePage() {
 
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchYouMightAlsoLike = async () => {
+    try {
+      setSuggestionsLoading(true);
+      setSuggestionsError('');
+
+      const response = await recommendationAPI.getYouMightAlsoLike(6);
+      setSuggestedDestinations(response.data.results || []);
+    } catch (err) {
+      setSuggestionsError(
+        err.response?.data?.error ||
+          'Failed to load suggestions'
+      );
+
+      console.error('Suggestion error:', err);
+    } finally {
+      setSuggestionsLoading(false);
     }
   };
 
@@ -386,28 +409,21 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
               {destinations.map((destination, index) => (
                 <div
                   key={destination.destination_id}
                   className="bg-white rounded-xl border border-gray-200 shadow-sm transition hover:shadow-xl"
                 >
-
                   <div className="flex items-center justify-between gap-4 p-5">
-
                     <div className="flex items-center gap-4">
-
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white font-bold text-lg">
                         {index + 1}
                       </div>
 
                       <div>
-
                         <button
                           type="button"
-                          onClick={() =>
-                            handleDestinationClick(destination)
-                          }
+                          onClick={() => handleDestinationClick(destination)}
                           className="text-xl font-bold text-gray-900 hover:text-blue-600 text-left"
                         >
                           {destination.name}
@@ -416,34 +432,26 @@ export default function HomePage() {
                         <p className="text-sm text-gray-500 mt-1">
                           {destination.province}
                         </p>
-
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => {
-
-                        if (
-                          destination.latitude &&
-                          destination.longitude
-                        ) {
+                        if (destination.latitude && destination.longitude) {
                           window.open(
                             `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`,
                             '_blank'
                           );
                         }
-
                       }}
                       className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
                     >
                       View in Map
                     </button>
-
                   </div>
 
                   <div className="border-t border-gray-100 px-5 py-4">
-
                     <p className="text-sm text-gray-500 mb-4">
                       {(() => {
                         const destinationId = destination.destination_id || destination.id;
@@ -457,12 +465,94 @@ export default function HomePage() {
                         return 'Distance unavailable';
                       })()}
                     </p>
-
                   </div>
-
                 </div>
               ))}
+            </div>
 
+            <div className="mt-14 border-t border-gray-200 pt-10">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  You Might Also Like
+                </h2>
+              </div>
+
+              {suggestionsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {[...Array(6)].map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-44 rounded-xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : suggestionsError ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-6 py-4 text-amber-800">
+                  {suggestionsError}
+                </div>
+              ) : suggestedDestinations.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {suggestedDestinations.map((destination, index) => (
+                    <div
+                      key={destination.destination_id}
+                      className="bg-white rounded-xl border border-gray-200 shadow-sm transition hover:shadow-xl"
+                    >
+                      <div className="flex items-center justify-between gap-4 p-5">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-blue-500 text-white font-bold text-lg shrink-0">
+                            {index + 1}
+                          </div>
+
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDestinationClick(destination)}
+                              className="text-xl font-bold text-gray-900 hover:text-blue-600 text-left truncate block max-w-full"
+                            >
+                              {destination.name}
+                            </button>
+
+                            <p className="text-sm text-gray-500 mt-1 truncate">
+                              {destination.province}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (destination.latitude && destination.longitude) {
+                              window.open(
+                                `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`,
+                                '_blank'
+                              );
+                            }
+                          }}
+                          className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition"
+                        >
+                          View in Map
+                        </button>
+                      </div>
+
+                      <div className="border-t border-gray-100 px-5 py-4">
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleDestinationClick(destination)}
+                            className="font-semibold text-blue-600 hover:text-blue-700"
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-gray-600">
+                  No personalized suggestions yet. Search a few destinations or update your profile to build this section.
+                </div>
+              )}
             </div>
           </>
         )}

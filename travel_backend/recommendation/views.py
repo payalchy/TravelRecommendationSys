@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.db.models import Q
 import json
 from urllib.parse import urlencode
@@ -127,6 +129,121 @@ def _province_filter_query(provinces):
         if normalized:
             query |= Q(province__iexact=normalized)
     return query
+
+
+def _destination_payload(destination, **extra):
+    payload = {
+        "destination_id": destination.id,
+        "name": destination.pName,
+        "province": destination.province,
+        "latitude": destination.latitude,
+        "longitude": destination.longitude,
+        "image": destination.image,
+        "culture": destination.culture,
+        "adventure": destination.adventure,
+        "wildlife": destination.wildlife,
+        "sightseeing": destination.sightseeing,
+        "history": destination.history,
+    }
+    payload.update(extra)
+    return payload
+
+
+def _profile_destination_preferences(profile):
+    preferences = {
+        "culture": 1.0,
+        "adventure": 1.0,
+        "wildlife": 1.0,
+        "sightseeing": 1.0,
+        "history": 1.0,
+    }
+
+    styles = profile.preferred_travel_style.all()
+    for style in styles:
+        name = str(style.name).strip().lower()
+        if name in preferences:
+            preferences[name] = 4.0
+
+    return preferences
+
+
+def _destination_reason_label(source_flags, matched_query=None):
+    if matched_query:
+        if str(matched_query).startswith("Based on your recent search for"):
+            return str(matched_query)
+
+        return f'Based on your recent search for "{matched_query}"'
+
+    if source_flags == {"history", "profile"}:
+        return "Based on your recent searches and preferences"
+
+    if source_flags == {"history"}:
+        return "Based on your recent searches"
+
+    return "Matches your preferences"
+
+
+def _gather_recent_search_suggestions(user, limit=5, max_histories=8):
+    histories = list(
+        SearchHistory.objects.filter(user=user)
+        .exclude(destination_results__isnull=True)
+        .order_by("-created_at")[:max_histories]
+    )
+
+    scored = defaultdict(
+        lambda: {
+            "score": 0.0,
+            "matched_queries": [],
+            "source_flags": set(),
+        }
+    )
+
+    for history_index, history in enumerate(histories):
+        history_weight = 1.0 / (history_index + 1)
+        results = history.destination_results or []
+
+        if isinstance(results, list):
+            for result_index, result in enumerate(results):
+                destination_id = result.get("destination_id")
+                if destination_id is None:
+                    continue
+
+                result_weight = history_weight * (1.0 / (result_index + 1))
+                bucket = scored[int(destination_id)]
+                bucket["score"] += result_weight
+                bucket["source_flags"].add("history")
+
+                query_text = str(history.query or "").strip()
+                if query_text and query_text != "recommendation_search":
+                    bucket["matched_queries"].append(query_text)
+
+    if scored:
+        destination_ids = list(scored.keys())
+        destinations = Destination.objects.filter(id__in=destination_ids)
+        destination_map = {destination.id: destination for destination in destinations}
+
+        ranked = []
+        for destination_id, bucket in scored.items():
+            destination = destination_map.get(destination_id)
+            if destination is None:
+                continue
+
+            top_query = bucket["matched_queries"][0] if bucket["matched_queries"] else None
+            ranked.append(
+                {
+                    **_destination_payload(
+                        destination,
+                        recommendation_reason=_destination_reason_label(bucket["source_flags"], top_query),
+                        recommendation_score=round(bucket["score"], 6),
+                        recommendation_sources=["history"],
+                    )
+                }
+            )
+
+        ranked.sort(key=lambda item: item.get("recommendation_score", 0.0), reverse=True)
+        return ranked[:limit]
+
+    return []
 
 
 # ---------------- RECOMMENDATION API ----------------
@@ -365,6 +482,113 @@ class RecommendationAPIView(APIView):
         )
 
 
+class YouMightAlsoLikeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        try:
+            profile = user.userprofile
+        except Exception:
+            from users.models import UserProfile
+
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+
+        top_n = _safe_float(request.query_params.get("top_n"), 6)
+        top_n = int(top_n) if top_n else 6
+        top_n = max(1, min(top_n, 12))
+
+        user_context = {
+            "budget": profile.budget,
+            "duration": profile.preferred_duration,
+            "travel_type": (
+                profile.preferred_travel_style.first().name
+                if profile.preferred_travel_style.exists()
+                else ""
+            ),
+            "user_latitude": profile.latitude if profile.latitude is not None else 27.7172,
+            "user_longitude": profile.longitude if profile.longitude is not None else 85.3240,
+        }
+
+        user_preferences = _profile_destination_preferences(profile)
+        candidate_scores = defaultdict(
+            lambda: {
+                "score": 0.0,
+                "source_flags": set(),
+                "matched_queries": [],
+            }
+        )
+
+        profile_ranked = recommend_destinations_direct(
+            user_prefs=user_preferences,
+            user_context=user_context,
+            destinations=Destination.objects.all(),
+            top_n=max(6, top_n),
+        )
+
+        for item in profile_ranked:
+            destination = item.destination
+            bucket = candidate_scores[destination.id]
+            bucket["score"] += float(item.final_score)
+            bucket["source_flags"].add("profile")
+
+        recent_history_candidates = _gather_recent_search_suggestions(user, limit=max(6, top_n))
+        for item in recent_history_candidates:
+            destination_id = item["destination_id"]
+            bucket = candidate_scores[destination_id]
+            bucket["score"] += float(item.get("recommendation_score", 0.0)) * 1.5
+            bucket["source_flags"].add("history")
+            reason = item.get("recommendation_reason")
+            if reason:
+                bucket["matched_queries"].append(reason)
+
+        if not candidate_scores:
+            return Response({"results": []}, status=status.HTTP_200_OK)
+
+        destination_ids = list(candidate_scores.keys())
+        destinations = Destination.objects.filter(id__in=destination_ids)
+        destination_map = {destination.id: destination for destination in destinations}
+
+        max_score = max((bucket["score"] for bucket in candidate_scores.values()), default=1.0)
+        results = []
+
+        for destination_id, bucket in candidate_scores.items():
+            destination = destination_map.get(destination_id)
+            if destination is None:
+                continue
+
+            normalized_score = bucket["score"] / max_score if max_score else bucket["score"]
+            matched_reason = None
+            for candidate_reason in bucket["matched_queries"]:
+                if candidate_reason.startswith("Based on your recent search for"):
+                    matched_reason = candidate_reason
+                    break
+
+            results.append(
+                _destination_payload(
+                    destination,
+                    recommendation_reason=_destination_reason_label(
+                        bucket["source_flags"],
+                        matched_reason,
+                    ),
+                    recommendation_score=round(normalized_score, 6),
+                    recommendation_sources=sorted(bucket["source_flags"]),
+                )
+            )
+
+        results.sort(key=lambda item: item.get("recommendation_score", 0.0), reverse=True)
+
+        return Response(
+            {
+                "results": results[:top_n],
+                "section_title": "You Might Also Like",
+                "section_subtitle": "A blend of your recent searches and profile preferences.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 # ---------------- DESTINATION PROVINCES API ----------------
 
 class DestinationProvinceListAPIView(APIView):
@@ -447,7 +671,8 @@ class DestinationSearchAPIView(APIView):
         if request.user.is_authenticated and query:
           SearchHistory.objects.create(
             user=request.user,
-            query=query
+                        query=query,
+                        destination_results=results,
             )
         # ---------------- RESPONSE ----------------
 

@@ -105,6 +105,12 @@ export const recommendationAPI = {
   getRecommendations: (payload) =>
     api.post('/recommend/', payload),
 
+  // Get blended personalized suggestions
+  getYouMightAlsoLike: (topN = 6) =>
+    api.get('/recommend/you-might-also-like/', {
+      params: { top_n: topN },
+    }),
+
   // Get provinces list
   getProvinces: () =>
     api.get('/destination/provinces/'),
