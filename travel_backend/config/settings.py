@@ -45,7 +45,7 @@ JAZZMIN_SETTINGS = {
     "site_header": "Travel Recommendation System",
     "site_brand": "Travel Admin",
     "welcome_sign": "Welcome to Travel Recommendation Admin",
-    "copyright": "Travel Recommendation System",
+    "copyright": "",
 
     "custom_css": "admin/css/custom_admin.css",
 }

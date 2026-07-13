@@ -200,6 +200,10 @@ input[type="button"]:hover,
   margin-bottom: 16px;
 }
 
+footer.app-footer {
+  display: none !important;
+}
+
 .tm-dashboard-title {
   margin: 0;
   font-size: 30px;

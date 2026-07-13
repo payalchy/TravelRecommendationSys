@@ -12,7 +12,7 @@ from django.conf import settings
 import googlemaps
 
 class Destination(models.Model):
-    pName = models.CharField(max_length=255, null=True, blank=True)
+    pName = models.CharField(max_length=255, null=True, blank=True, verbose_name="Place Name")
     province = models.CharField(max_length=50, null=True, blank=True)
     city = models.CharField(max_length=255, null=True, blank=True)
     latitude = models.FloatField(
