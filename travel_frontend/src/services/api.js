@@ -111,6 +111,14 @@ export const recommendationAPI = {
       params: { top_n: topN },
     }),
 
+  // Get ranked package recommendations
+  getRecommendedPackages: (payload) =>
+    api.post('/recommend/available-packages/', payload),
+
+  // Get a single recommended package by id
+  getRecommendedPackage: (packageId) =>
+    api.get(`/recommend/available-packages/${packageId}/`),
+
   // Get provinces list
   getProvinces: () =>
     api.get('/destination/provinces/'),

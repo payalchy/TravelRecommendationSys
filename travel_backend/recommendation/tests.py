@@ -150,6 +150,28 @@ class RecommendationAPITests(APITestCase):
 
         self.assertEqual(actual_order, expected_order)
 
+    def test_recommended_packages_endpoint_returns_match_reasons(self):
+        url = reverse("recommended-packages")
+        response = self.client.post(
+            url,
+            {
+                "budget": 22000,
+                "duration": 4,
+                "preferred_provinces": ["Gandaki"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(response.data["package_count"], 1)
+        self.assertGreaterEqual(len(response.data["packages"]), 1)
+
+        first_package = response.data["packages"][0]
+        self.assertIn("recommendation_reason", first_package)
+        self.assertIn("recommendation_reasons", first_package)
+        self.assertIn("match_score", first_package)
+        self.assertIn("destination_id", first_package)
+
     def test_package_distance_includes_start_location_and_itinerary_path(self):
         package = TravelPackage.objects.create(
             name="Route Distance Test",

@@ -183,6 +183,151 @@ def _destination_reason_label(source_flags, matched_query=None):
     return "Matches your preferences"
 
 
+def _normalize_text_list(value):
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return []
+
+        try:
+            parsed = json.loads(normalized)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+
+        if "," in normalized:
+            return [part.strip() for part in normalized.split(",") if part.strip()]
+
+        return [normalized]
+
+    return []
+
+
+def _package_similarity_score(expected, actual):
+    expected_value = _safe_float(expected)
+    actual_value = _safe_float(actual)
+
+    if expected_value is None or actual_value is None:
+        return 0.5
+
+    scale = max(abs(expected_value), abs(actual_value), 1.0)
+    return max(0.0, 1.0 - abs(expected_value - actual_value) / scale)
+
+
+def _package_style_score(profile_styles, package_type):
+    if not profile_styles or not package_type:
+        return 0.5
+
+    package_type_text = str(package_type).strip().lower()
+    normalized_styles = [str(style).strip().lower() for style in profile_styles if str(style).strip()]
+
+    if not normalized_styles:
+        return 0.5
+
+    if any(style in package_type_text for style in normalized_styles):
+        return 1.0
+
+    return 0.25
+
+
+def _package_match_reasons(package, profile, preferred_provinces=None):
+    reasons = []
+
+    budget = _safe_float(getattr(profile, "budget", None)) if profile else None
+    duration = _safe_float(getattr(profile, "preferred_duration", None)) if profile else None
+    selected_styles = [style.name for style in profile.preferred_travel_style.all()] if profile else []
+
+    package_budget = _safe_float(getattr(package, "budget", None))
+    package_days = _safe_float(getattr(package, "days", None))
+    package_type = getattr(package, "package_type", None)
+    province = getattr(getattr(package, "end_location", None), "province", None)
+
+    if budget is not None and package_budget is not None:
+        if package_budget <= budget:
+            reasons.append("Within your budget")
+        elif package_budget <= budget * 1.15:
+            reasons.append("Close to your budget")
+
+    if duration is not None and package_days is not None:
+        if package_days == duration:
+            reasons.append("Matches your preferred trip length")
+        elif abs(package_days - duration) <= 1:
+            reasons.append("Near your preferred trip length")
+
+    if selected_styles and package_type:
+        package_type_text = str(package_type).strip().lower()
+        if any(str(style).strip().lower() in package_type_text for style in selected_styles):
+            reasons.append("Matches your travel style")
+
+    if preferred_provinces and province:
+        normalized_province = str(province).strip().lower()
+        normalized_preferences = {
+            str(item).strip().lower()
+            for item in preferred_provinces
+            if str(item).strip()
+        }
+        if normalized_province in normalized_preferences:
+            reasons.append(f"In your preferred province: {province}")
+
+    if getattr(package, "distance_km", None) is not None and package.distance_km <= 250:
+        reasons.append("Good route length for a short trip")
+
+    if not reasons:
+        reasons.append("Popular package match")
+
+    seen = set()
+    unique_reasons = []
+    for reason in reasons:
+        if reason not in seen:
+            seen.add(reason)
+            unique_reasons.append(reason)
+
+    return unique_reasons[:3]
+
+
+def _package_match_score(package, profile, preferred_provinces=None):
+    budget_score = _package_similarity_score(
+        getattr(profile, "budget", None) if profile else None,
+        getattr(package, "budget", None),
+    )
+
+    duration_score = _package_similarity_score(
+        getattr(profile, "preferred_duration", None) if profile else None,
+        getattr(package, "days", None),
+    )
+
+    selected_styles = [style.name for style in profile.preferred_travel_style.all()] if profile else []
+    style_score = _package_style_score(selected_styles, getattr(package, "package_type", None))
+
+    province_score = 0.5
+    province = getattr(getattr(package, "end_location", None), "province", None)
+    if preferred_provinces and province:
+        normalized_preferences = {
+            str(item).strip().lower()
+            for item in preferred_provinces
+            if str(item).strip()
+        }
+        province_score = 1.0 if str(province).strip().lower() in normalized_preferences else 0.25
+
+    route_distance = _safe_float(getattr(package, "distance_km", None))
+    distance_score = 0.5 if route_distance is None else 1.0 / (1.0 + max(route_distance, 0.0) / 250.0)
+
+    return (
+        0.35 * budget_score
+        + 0.25 * duration_score
+        + 0.20 * style_score
+        + 0.10 * province_score
+        + 0.10 * distance_score
+    )
+
+
 def _gather_recent_search_suggestions(user, limit=5, max_histories=8):
     histories = list(
         SearchHistory.objects.filter(user=user)
@@ -281,6 +426,12 @@ class RecommendationAPIView(APIView):
         request_budget = _safe_float(request.data.get("budget"))
         request_duration = _safe_float(request.data.get("duration"))
         request_season = request.data.get("preferred_season")
+        save_history = request.data.get("save_history", True)
+
+        if isinstance(save_history, str):
+            save_history = save_history.strip().lower() not in {"false", "0", "no", "off"}
+        else:
+            save_history = bool(save_history)
 
         user_budget = (
             request_budget
@@ -433,21 +584,22 @@ class RecommendationAPIView(APIView):
 
         # ---------------- SAVE SEARCH HISTORY ----------------
 
-        SearchHistory.objects.create(
-            user=request.user,
-            query="recommendation_search",
-            search_payload={
-                "budget": user_budget,
-                "duration": user_duration,
-                "preferred_season": user_season,
-                "preferred_province": preferred_province,
-                "location": {
-                    "latitude": resolved_lat,
-                    "longitude": resolved_lon,
+        if save_history:
+            SearchHistory.objects.create(
+                user=request.user,
+                query="recommendation_search",
+                search_payload={
+                    "budget": user_budget,
+                    "duration": user_duration,
+                    "preferred_season": user_season,
+                    "preferred_province": preferred_province,
+                    "location": {
+                        "latitude": resolved_lat,
+                        "longitude": resolved_lon,
+                    },
                 },
-            },
-            destination_results=destination_data,
-        )
+                destination_results=destination_data,
+            )
 
         # ---------------- FINAL RESPONSE ----------------
 
@@ -584,6 +736,199 @@ class YouMightAlsoLikeAPIView(APIView):
                 "results": results[:top_n],
                 "section_title": "You Might Also Like",
                 "section_subtitle": "A blend of your recent searches and profile preferences.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class RecommendedPackagesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        try:
+            profile = user.userprofile
+        except Exception:
+            from users.models import UserProfile
+
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+
+        request_budget = _safe_float(request.data.get("budget"))
+        request_duration = _safe_float(request.data.get("duration"))
+        request_provinces = _coerce_preferred_provinces(request)
+
+        user_budget = request_budget if request_budget is not None else profile.budget
+        user_duration = request_duration if request_duration is not None else profile.preferred_duration
+
+        preferred_provinces = request_provinces
+        if not preferred_provinces and hasattr(profile, "get_preferred_provinces"):
+            preferred_provinces = profile.get_preferred_provinces()
+
+        top_n = _safe_float(request.data.get("top_n"), 6)
+        top_n = int(top_n) if top_n else 6
+        top_n = max(1, min(top_n, 12))
+
+        packages = (
+            TravelPackage.objects.select_related("start_location", "end_location")
+            .all()
+        )
+
+        if not packages.exists():
+            return Response(
+                {
+                    "package_count": 0,
+                    "packages": [],
+                    "constraints_applied": {
+                        "budget_npr": user_budget,
+                        "duration_days": user_duration,
+                    },
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        ranked_packages = []
+
+        for package in packages:
+            match_score = _package_match_score(package, profile, preferred_provinces)
+            reasons = _package_match_reasons(package, profile, preferred_provinces)
+
+            package_image = None
+            if package.image:
+                package_image = request.build_absolute_uri(package.image.url)
+
+            ranked_packages.append(
+                {
+                    "package_id": package.id,
+                    "name": package.name,
+                    "description": package.description,
+                    "days": package.days,
+                    "budget": package.budget,
+                    "transport_mode": package.transport_mode,
+                    "package_type": package.package_type,
+                    "number_of_travelers": package.number_of_travelers,
+                    "start_location": (
+                        package.start_location.pName
+                        if package.start_location
+                        else None
+                    ),
+                    "destination_id": (
+                        package.end_location.id
+                        if package.end_location
+                        else None
+                    ),
+                    "destination_name": (
+                        package.end_location.pName
+                        if package.end_location
+                        else None
+                    ),
+                    "province": (
+                        package.end_location.province
+                        if package.end_location
+                        else None
+                    ),
+                    "image": package_image,
+                    "includes": _normalize_text_list(package.includes),
+                    "excludes": _normalize_text_list(package.excludes),
+                    "distance_km": round(package.distance_km, 2),
+                    "match_score": round(match_score, 6),
+                    "recommendation_reason": reasons[0],
+                    "recommendation_reasons": reasons,
+                }
+            )
+
+        ranked_packages.sort(
+            key=lambda item: (
+                item.get("match_score", 0.0),
+                -float(item.get("budget") or 0.0),
+            ),
+            reverse=True,
+        )
+
+        return Response(
+            {
+                "package_count": len(ranked_packages[:top_n]),
+                "packages": ranked_packages[:top_n],
+                "constraints_applied": {
+                    "budget_npr": user_budget,
+                    "duration_days": user_duration,
+                    "preferred_provinces": preferred_provinces,
+                },
+                "section_title": "Recommended Packages",
+                "section_subtitle": "Packages ranked from your saved preferences.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class RecommendedPackageDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, package_id):
+        try:
+            package = TravelPackage.objects.select_related("start_location", "end_location").get(id=package_id)
+        except TravelPackage.DoesNotExist:
+            return Response(
+                {"error": f"Package with id {package_id} not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        itineraries = (
+            PackageItinerary.objects.filter(package=package)
+            .select_related("destination")
+            .order_by("day_number")
+        )
+
+        itinerary_data = []
+        for itinerary in itineraries:
+            itinerary_data.append(
+                {
+                    "day_number": itinerary.day_number,
+                    "destination": itinerary.destination.pName if itinerary.destination else None,
+                    "description": itinerary.description,
+                }
+            )
+
+        package_image = None
+        if package.image:
+            package_image = request.build_absolute_uri(package.image.url)
+
+        return Response(
+            {
+                "package_id": package.id,
+                "name": package.name,
+                "description": package.description,
+                "days": package.days,
+                "budget": package.budget,
+                "number_of_travelers": package.number_of_travelers,
+                "transport_mode": package.transport_mode,
+                "package_type": package.package_type,
+                "start_location": package.start_location.pName if package.start_location else None,
+                "end_location": package.end_location.pName if package.end_location else None,
+                "start_coords": (
+                    {
+                        "lat": package.start_location.latitude,
+                        "lng": package.start_location.longitude,
+                    }
+                    if package.start_location
+                    and package.start_location.latitude is not None
+                    and package.start_location.longitude is not None
+                    else None
+                ),
+                "end_coords": (
+                    {
+                        "lat": package.end_location.latitude,
+                        "lng": package.end_location.longitude,
+                    }
+                    if package.end_location
+                    and package.end_location.latitude is not None
+                    and package.end_location.longitude is not None
+                    else None
+                ),
+                "image": package_image,
+                "includes": _normalize_text_list(package.includes),
+                "excludes": _normalize_text_list(package.excludes),
+                "itinerary": itinerary_data,
             },
             status=status.HTTP_200_OK,
         )
@@ -880,6 +1225,7 @@ class DestinationPackagesAPIView(APIView):
                     "description": pkg.description,
                     "days": duration,
                     "budget": budget,
+                    "number_of_travelers": getattr(pkg, "number_of_travelers", None),
                     "transport_mode": transport_mode,
                     "package_type": package_type,
                     "start_location": (

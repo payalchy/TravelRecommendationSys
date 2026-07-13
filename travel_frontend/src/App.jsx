@@ -11,6 +11,7 @@ import PreferencesPage from './pages/PreferencesPage';
 import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import DestinationDetailPage from './pages/DestinationDetailPage';
+import PackageDetail from './pages/PackageDetail';
 
 function App() {
   return (
@@ -52,6 +53,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <DestinationDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/package/:id"
+              element={
+                <ProtectedRoute>
+                  <PackageDetail />
                 </ProtectedRoute>
               }
             />

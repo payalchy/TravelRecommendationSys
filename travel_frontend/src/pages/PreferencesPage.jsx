@@ -254,6 +254,14 @@ export default function PreferencesPage() {
       await recommendationAPI.updateUserProfile(updateData);
       storeProvinceSelection(selectedProvinces);
       await refreshUserProfile();
+
+      recommendationAPI.getRecommendations({
+        ...updateData,
+        save_history: true,
+      }).catch((recommendationError) => {
+        console.error('Recommendation save error:', recommendationError);
+      });
+
       navigate('/home', { replace: true });
     } catch (err) {
       console.error('Update error:', err);
