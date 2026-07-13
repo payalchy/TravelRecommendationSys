@@ -279,7 +279,10 @@ class TravelPackage(models.Model):
         return round(total_distance, 2)
 
     def save(self, *args, **kwargs):
-        self.distance_km = self.calculate_distance_km()
+        if self.pk is not None:
+            self.distance_km = self.calculate_distance_km()
+        else:
+            self.distance_km = 0.0
         super().save(*args, **kwargs)
 
     def __str__(self):
