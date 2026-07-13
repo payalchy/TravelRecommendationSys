@@ -31,6 +31,16 @@ def _dashboard_each_context(request):
         None,
     )
 
+    latest_packages = TravelPackage.objects.select_related(
+    "start_location",
+    "end_location",
+    ).order_by("-id")[:5]
+
+    latest_destinations = Destination.objects.order_by("-id")[:5]
+
+
+    total_itineraries = PackageItinerary.objects.count()
+
     module_cards = [
         {
             "title": "Destinations",
@@ -83,11 +93,40 @@ def _dashboard_each_context(request):
     context.update(
         {
             "total_destinations": Destination.objects.count(),
-            "total_packages": TravelPackage.objects.count(),
-            "total_users": user_model.objects.count(),
-            "total_bookings": booking_model.objects.count() if booking_model else 0,
-            "module_cards": module_cards,
-            "recent_activities": recent_activities[:12],
+
+    "total_packages": TravelPackage.objects.count(),
+
+    "total_users": user_model.objects.count(),
+
+    "total_bookings": booking_model.objects.count() if booking_model else 0,
+
+    "total_itineraries": total_itineraries,
+
+    "latest_packages": latest_packages,
+
+    "latest_destinations": latest_destinations,
+
+    "module_cards": module_cards,
+
+    "recent_activities": recent_activities[:12],
+
+    "destination_changelist_url": reverse(
+        "admin:recommendation_destination_changelist"
+    ),
+
+    "package_changelist_url": reverse(
+        "admin:recommendation_travelpackage_changelist"
+    ),
+
+    "destination_add_url": reverse(
+        "admin:recommendation_destination_add"
+    ),
+
+    "package_add_url": reverse(
+        "admin:recommendation_travelpackage_add"
+    ),
+
+
         }
     )
     return context
@@ -198,7 +237,7 @@ class DestinationAdmin(admin.ModelAdmin):
             "fields": ("culture", "adventure", "wildlife", "sightseeing", "history")
         }),
         ("Additional Info", {
-            "fields": ("tags", "image")
+            "fields": ("tags",)
         }),
     )
 

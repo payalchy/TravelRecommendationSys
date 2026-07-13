@@ -77,3 +77,282 @@
   </div>
 </div>
 {% endblock %}
+
+/* ===========================================================
+   BRANDING
+=========================================================== */
+
+#site-name{
+
+    margin:0;
+
+}
+
+.tm-brand{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+    text-decoration:none !important;
+
+}
+
+.tm-brand-logo{
+
+    width:46px;
+
+    height:46px;
+
+    border-radius:12px;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #3b82f6
+    );
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:white;
+
+    font-size:18px;
+
+    font-weight:800;
+
+    box-shadow:0 8px 20px rgba(37,99,235,.30);
+
+}
+
+.tm-brand-text{
+
+    display:flex;
+
+    flex-direction:column;
+
+    line-height:1.2;
+
+}
+
+.tm-brand-title{
+
+    color:white;
+
+    font-size:18px;
+
+    font-weight:700;
+
+}
+
+.tm-brand-subtitle{
+
+    color:#94a3b8;
+
+    font-size:12px;
+
+    letter-spacing:.5px;
+
+    text-transform:uppercase;
+
+}
+
+.tm-brand:hover{
+
+    text-decoration:none;
+
+}
+
+.tm-brand:hover .tm-brand-logo{
+
+    transform:rotate(-5deg) scale(1.05);
+
+    transition:.25s;
+
+}
+
+/* ===========================================================
+   TOP NAVBAR
+=========================================================== */
+
+/* Main Header */
+
+.main-header{
+
+    background:#111827 !important;
+
+    border-bottom:1px solid rgba(255,255,255,.06);
+
+    box-shadow:0 4px 20px rgba(0,0,0,.18);
+
+    min-height:70px;
+
+}
+
+
+/* Navbar */
+
+.navbar{
+
+    background:#111827 !important;
+
+    padding:0 20px;
+
+}
+
+
+/* Navigation Links */
+
+.main-header .nav-link{
+
+    color:#cbd5e1 !important;
+
+    border-radius:10px;
+
+    padding:10px 14px !important;
+
+    transition:all .25s ease;
+
+}
+
+
+/* Hover */
+
+.main-header .nav-link:hover{
+
+    background:#1e293b !important;
+
+    color:#ffffff !important;
+
+}
+
+
+/* Active */
+
+.main-header .nav-link.active{
+
+    background:#2563eb !important;
+
+    color:white !important;
+
+}
+
+
+/* Search */
+
+.navbar input[type="search"],
+.navbar .form-control{
+
+    background:#1f2937 !important;
+
+    color:white !important;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:12px;
+
+}
+
+.navbar input::placeholder{
+
+    color:#94a3b8;
+
+}
+
+
+/* Search Focus */
+
+.navbar .form-control:focus{
+
+    border-color:#2563eb;
+
+    box-shadow:0 0 0 3px rgba(37,99,235,.20);
+
+}
+
+
+/* Dropdown */
+
+.dropdown-menu{
+
+    background:#1e293b !important;
+
+    border:1px solid rgba(255,255,255,.05);
+
+    border-radius:14px;
+
+    overflow:hidden;
+
+}
+
+
+/* Dropdown Items */
+
+.dropdown-item{
+
+    color:#e2e8f0 !important;
+
+    padding:12px 18px;
+
+}
+
+.dropdown-item:hover{
+
+    background:#2563eb !important;
+
+    color:white !important;
+
+}
+
+
+/* User Name */
+
+.navbar .navbar-nav .nav-link{
+
+    font-weight:600;
+
+}
+
+
+/* Notification Badge */
+
+.badge{
+
+    border-radius:999px;
+
+    font-size:11px;
+
+    padding:5px 8px;
+
+}
+
+
+/* Navbar Icons */
+
+.main-header i,
+
+.main-header svg{
+
+    font-size:16px;
+
+}
+
+
+/* Sidebar Toggle */
+
+.main-header .nav-link[data-widget="pushmenu"]{
+
+    border-radius:10px;
+
+}
+
+.main-header .nav-link[data-widget="pushmenu"]:hover{
+
+    background:#1e293b !important;
+
+}

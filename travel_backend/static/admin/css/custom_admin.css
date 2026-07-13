@@ -1,23 +1,25 @@
 :root {
-  --bg-main: #0f1730;
-  --bg-panel: #1a2446;
-  --bg-row: #1c2647;
-  --bg-row-hover: #26335e;
-  --text-main: #eaf2ff;
-  --text-muted: #b8c5e2;
-  --border: rgba(255, 255, 255, 0.14);
-  --accent: #9dd9ff;
-  --button: #1c7f66;
-  --button-hover: #1f9578;
+  --bg-main: #0f172a;
+  --bg-panel: #111827;
+  --bg-row: #1d2943;
+  --bg-row-hover: #24304f;
+  --text-main: #f8fafc;
+  --text-muted: #9fb1c9;
+  --border: rgba(255, 255, 255, 0.12);
+  --accent: #60a5fa;
+  --button: #2563eb;
+  --button-hover: #1d4ed8;
 }
 
 html,
 body {
   font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-main);
 }
 
 #header {
-  background: linear-gradient(120deg, #0e1428, #1a2343);
+  background: linear-gradient(120deg, #0f172a, #111827);
   color: var(--text-main);
   border-bottom: 1px solid var(--border);
 }
@@ -38,6 +40,18 @@ div.breadcrumbs a {
   background: var(--bg-main);
 }
 
+body,
+.wrapper,
+#container,
+#content,
+#content-main,
+.content-wrapper,
+.main-content,
+.main-panel {
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
 #nav-sidebar,
 #toggle-nav-sidebar {
   background: var(--bg-main);
@@ -46,83 +60,11 @@ div.breadcrumbs a {
 }
 
 #nav-sidebar a,
+#nav-sidebar li a,
 #nav-sidebar th,
 #nav-sidebar td,
 #nav-sidebar caption {
   color: var(--text-main);
-}
-
-#nav-sidebar tr[class*="app-"] {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-}
-
-#nav-sidebar tr[class*="app-"],
-#nav-sidebar tr[class*="app-"] th,
-#nav-sidebar tr[class*="app-"] td,
-#nav-sidebar tr[class*="model-"],
-#nav-sidebar tr[class*="model-"] th,
-#nav-sidebar tr[class*="model-"] td,
-#nav-sidebar tr.current-app,
-#nav-sidebar tr.current-app th,
-#nav-sidebar tr.current-app td,
-#nav-sidebar tr.current-model,
-#nav-sidebar tr.current-model th,
-#nav-sidebar tr.current-model td {
-  background: var(--bg-main) !important;
-}
-
-#nav-sidebar tr[class*="app-"] th,
-#nav-sidebar tr[class*="app-"] td,
-#nav-sidebar tr[class*="model-"] th,
-#nav-sidebar tr[class*="model-"] td {
-  background: var(--bg-main) !important;
-}
-
-#nav-sidebar tr[class*="model-"] a {
-  display: block;
-  margin: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar li,
-#nav-sidebar li a,
-#nav-sidebar li a:link,
-#nav-sidebar li a:visited,
-#nav-sidebar li a:hover,
-#nav-sidebar li a:active,
-#nav-sidebar li.current-model,
-#nav-sidebar li.current-model a,
-#nav-sidebar li.current-app,
-#nav-sidebar li.current-app a {
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar li.current-model,
-#nav-sidebar li.current-app,
-#nav-sidebar li.current-model a,
-#nav-sidebar li.current-app a {
-  background: transparent !important;
-}
-
-#nav-sidebar tr[class*="model-"] a,
-#nav-sidebar tr[class*="model-"] a:link,
-#nav-sidebar tr[class*="model-"] a:visited,
-#nav-sidebar tr[class*="model-"] a:hover,
-#nav-sidebar tr[class*="model-"] a:active,
-#nav-sidebar .current-model a,
-#nav-sidebar .current-app a {
-  background: var(--bg-main) !important;
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar tr[class*="model-"] a:hover,
-#nav-sidebar .current-model a {
-  background: rgba(110, 165, 255, 0.22);
-  color: #ffffff;
 }
 
 .module h2,
@@ -132,20 +74,29 @@ div.breadcrumbs a {
   color: var(--text-main);
 }
 
+.module,
+.change-form,
+.form-row,
+.aligned,
+.fieldBox {
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
 .button,
 a.button,
-input[type=submit],
-input[type=button],
+input[type="submit"],
+input[type="button"],
 .submit-row input {
   background: var(--button);
   border-color: var(--button);
-  color: #eafff8;
+  color: #ffffff;
 }
 
 .button:hover,
 a.button:hover,
-input[type=submit]:hover,
-input[type=button]:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover,
 .submit-row input:hover {
   background: var(--button-hover);
   border-color: var(--button-hover);
@@ -158,76 +109,31 @@ input[type=button]:hover,
 .change-list #changelist table,
 .change-list #changelist td,
 .change-list #changelist th {
-  background: var(--bg-main) !important;
-  color: var(--text-main) !important;
+  background: var(--bg-main);
+  color: var(--text-main);
 }
 
 .change-list #changelist #toolbar,
 .change-list .actions,
 .change-list .paginator,
 .change-list #changelist-filter {
-  background: var(--bg-panel) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border) !important;
-}
-
-.change-list #changelist table {
-  border: 1px solid var(--border) !important;
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border-color: var(--border);
 }
 
 .change-list #changelist table thead th {
-  background: #202f5f !important;
-  color: var(--text-main) !important;
-  border-bottom: 1px solid var(--border) !important;
+  background: #172033;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border);
 }
 
-.change-list #changelist table tbody tr,
-.change-list #changelist table tbody tr:nth-child(odd),
-.change-list #changelist table tbody tr:nth-child(even),
-.change-list #changelist table tbody tr.selected {
-  background: var(--bg-row) !important;
-}
-
-.change-list #changelist table tbody tr td,
-.change-list #changelist table tbody tr th,
-.change-list #result_list tr.row1 td,
-.change-list #result_list tr.row1 th,
-.change-list #result_list tr.row2 td,
-.change-list #result_list tr.row2 th {
-  background: var(--bg-row) !important;
+.change-list #changelist table tbody tr {
+  background: var(--bg-row);
 }
 
 .change-list #changelist table tbody tr:hover {
-  background: var(--bg-row-hover) !important;
-}
-
-.change-list #changelist table tbody td,
-.change-list #changelist table tbody th,
-.change-list #changelist table tbody td a,
-.change-list #changelist table tbody th a,
-.change-list #changelist-filter h2,
-.change-list #changelist-filter h3,
-.change-list #changelist-filter a,
-.change-list #changelist-filter li,
-.change-list .paginator a {
-  color: var(--text-main) !important;
-}
-
-.change-list #changelist table tbody td a:hover,
-.change-list #changelist table tbody th a:hover,
-.change-list .paginator a:hover {
-  color: var(--accent) !important;
-}
-
-.change-list #changelist-search input,
-.change-list #changelist-search button,
-.change-list .actions select,
-.change-list .actions input,
-.change-list .actions button,
-#nav-filter {
-  background: #111a35;
-  color: var(--text-main);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--bg-row-hover);
 }
 
 .tm-admin-title {
@@ -243,9 +149,9 @@ input[type=button]:hover,
 
 .tm-admin-badge,
 .tm-admin-edit-btn {
-  background: #dce8ff;
-  border: 1px solid #9fb8ef;
-  color: #173670;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #0f172a;
   border-radius: 999px;
 }
 
@@ -261,14 +167,8 @@ input[type=button]:hover,
   text-decoration: none;
 }
 
-.change-list #changelist table tbody td .tm-admin-edit-btn {
-  background: #dce8ff !important;
-  border-color: #9fb8ef !important;
-  color: #173670 !important;
-}
-
 .tm-admin-rating {
-  color: #8df0d7;
+  color: #86efac;
   font-weight: 700;
 }
 
@@ -278,18 +178,6 @@ input[type=button]:hover,
   border-radius: 9px;
   object-fit: cover;
   border: 1px solid var(--border);
-}
-
-/* Keep package preview image small in changelist table. */
-.change-list td.field-image_preview img,
-.change-list th.field-image_preview img,
-.change-list img.tm-admin-thumb {
-  width: 96px !important;
-  height: 56px !important;
-  max-width: 96px !important;
-  max-height: 56px !important;
-  object-fit: cover !important;
-  display: block;
 }
 
 .tm-admin-thumb-empty {
@@ -306,9 +194,9 @@ input[type=button]:hover,
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  background: linear-gradient(180deg, #121a35, #141d3a);
+  background: linear-gradient(180deg, #111827, #172033);
   border-radius: 18px;
-  padding: 18px 18px 14px;
+  padding: 18px;
   margin-bottom: 16px;
 }
 
@@ -316,6 +204,7 @@ input[type=button]:hover,
   margin: 0;
   font-size: 30px;
   font-weight: 700;
+  color: #ffffff;
 }
 
 .tm-dashboard-subtitle {
@@ -351,10 +240,12 @@ input[type=button]:hover,
   display: inline-block;
   font-size: 22px;
   margin-right: 6px;
+  color: #ffffff;
 }
 
 .tm-stat-card span {
   font-size: 13px;
+  color: #ffffff;
 }
 
 .tm-dashboard-grid {
@@ -372,6 +263,7 @@ input[type=button]:hover,
 .tm-panel h2 {
   margin: 0 0 10px;
   font-size: 18px;
+  color: #ffffff;
 }
 
 .tm-activity-list,
@@ -439,8 +331,8 @@ input[type=button]:hover,
 @media (max-width: 900px) {
   .tm-dashboard-hero,
   .tm-dashboard-grid {
-    grid-template-columns: 1fr;
     display: grid;
+    grid-template-columns: 1fr;
   }
 
   .tm-stats-grid {
@@ -460,59 +352,5 @@ input[type=button]:hover,
   .tm-dashboard-account {
     width: 100%;
     text-align: center;
-  }
-}
-
-@media (max-width: 1024px) {
-  #container {
-    background: var(--bg-main);
-  }
-}
-
-/* Dashboard consistency overrides */
-.tm-dashboard,
-.tm-dashboard * {
-  color: var(--text-main);
-}
-
-.tm-dashboard-title,
-.tm-panel h2,
-.tm-stat-card strong,
-.tm-stat-card span,
-.tm-activity-list strong,
-.tm-module-card strong {
-  color: #ffffff !important;
-}
-
-.tm-dashboard-subtitle,
-.tm-empty {
-  color: var(--text-muted) !important;
-}
-
-.tm-stats-grid {
-  display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-}
-
-.tm-dashboard-grid {
-  display: grid !important;
-  grid-template-columns: 2fr 1fr !important;
-}
-
-.tm-panel {
-  min-height: 100%;
-}
-
-.tm-module-panel {
-  display: block !important;
-}
-
-@media (max-width: 900px) {
-  .tm-dashboard-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .tm-stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }

@@ -21,6 +21,7 @@ ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 # APPLICATIONS
 # =========================
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,6 +39,16 @@ INSTALLED_APPS = [
     'recommendation',
 ]
 
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Travel Admin",
+    "site_header": "Travel Recommendation System",
+    "site_brand": "Travel Admin",
+    "welcome_sign": "Welcome to Travel Recommendation Admin",
+    "copyright": "Travel Recommendation System",
+
+    "custom_css": "admin/css/custom_admin.css",
+}
 
 # =========================
 # MIDDLEWARE
