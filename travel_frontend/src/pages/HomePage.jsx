@@ -13,6 +13,9 @@ export default function HomePage() {
   const [suggestedDestinations, setSuggestedDestinations] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const [suggestionsError, setSuggestionsError] = useState('');
+  const [recommendedPackages, setRecommendedPackages] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState('');
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,9 +51,37 @@ export default function HomePage() {
 
   const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
 
+  const buildRecommendationPayload = ({ saveHistory = true } = {}) => {
+    const payload = {
+      user_latitude: user?.latitude || 27.7172,
+      user_longitude: user?.longitude || 85.324,
+      save_history: saveHistory,
+    };
+
+    if (user?.budget) payload.budget = user.budget;
+
+    if (user?.preferred_duration) {
+      payload.duration = user.preferred_duration;
+    }
+
+    if (user?.preferred_season) {
+      payload.preferred_season = user.preferred_season;
+    }
+
+    const preferredProvinces = normalizeProvinceList(user?.preferred_provinces);
+    const fallbackProvinces = getStoredProvinceList();
+
+    if (preferredProvinces.length > 0 || fallbackProvinces.length > 0) {
+      payload.preferred_provinces = preferredProvinces.length > 0 ? preferredProvinces : fallbackProvinces;
+    }
+
+    return payload;
+  };
+
   useEffect(() => {
     if (user) {
-      fetchRecommendations();
+      fetchRecommendations({ saveHistory: false });
+      fetchRecommendedPackages();
       fetchYouMightAlsoLike();
     }
   }, [user]);
@@ -101,36 +132,11 @@ export default function HomePage() {
     setDistanceLabels(nextDistances);
   };
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async ({ saveHistory = true } = {}) => {
     try {
       setLoading(true);
 
-      const payload = {
-        user_latitude: user?.latitude || 27.7172,
-        user_longitude: user?.longitude || 85.324,
-      };
-
-      if (user?.budget) payload.budget = user.budget;
-
-      if (user?.preferred_duration) {
-        payload.duration = user.preferred_duration;
-      }
-
-      if (user?.preferred_season) {
-        payload.preferred_season = user.preferred_season;
-      }
-
-      const preferredProvinces = normalizeProvinceList(user?.preferred_provinces);
-      const fallbackProvinces = getStoredProvinceList();
-
-      if (preferredProvinces.length > 0 || fallbackProvinces.length > 0) {
-        payload.preferred_provinces = preferredProvinces.length > 0 ? preferredProvinces : fallbackProvinces;
-      }
-
-      const response =
-        await recommendationAPI.getRecommendations(
-          payload
-        );
+      const response = await recommendationAPI.getRecommendations(buildRecommendationPayload({ saveHistory }));
 
       const recommendations = response.data.destination_results || [];
       setDestinations(recommendations);
@@ -150,6 +156,21 @@ export default function HomePage() {
 
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecommendedPackages = async () => {
+    try {
+      setPackagesLoading(true);
+      setPackagesError('');
+
+      const response = await recommendationAPI.getRecommendedPackages(buildRecommendationPayload());
+      setRecommendedPackages(response.data.packages || []);
+    } catch (err) {
+      setPackagesError(err.response?.data?.error || 'Failed to fetch recommended packages');
+      console.error('Package recommendation error:', err);
+    } finally {
+      setPackagesLoading(false);
     }
   };
 
@@ -350,7 +371,7 @@ export default function HomePage() {
             {error}
 
             <button
-              onClick={fetchRecommendations}
+              onClick={() => fetchRecommendations({ saveHistory: false })}
               className="ml-4 underline font-semibold hover:no-underline"
             >
               Try Again
@@ -449,6 +470,14 @@ export default function HomePage() {
                     >
                       View in Map
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDestinationClick(destination)}
+                      className="rounded-xl border border-blue-600 px-4 py-3 text-sm font-semibold text-blue-600 hover:bg-blue-50 transition"
+                    >
+                      Details
+                    </button>
                   </div>
 
                   <div className="border-t border-gray-100 px-5 py-4">
@@ -515,6 +544,12 @@ export default function HomePage() {
                             <p className="text-sm text-gray-500 mt-1 truncate">
                               {destination.province}
                             </p>
+
+                            <p className="mt-2 text-xs text-gray-400">
+                              {destination.distance_km != null
+                                ? `Approx. straight-line distance: ${destination.distance_km.toFixed(2)} km`
+                                : 'Distance unavailable'}
+                            </p>
                           </div>
                         </div>
 
@@ -535,6 +570,12 @@ export default function HomePage() {
                       </div>
 
                       <div className="border-t border-gray-100 px-5 py-4">
+                        <div className="mb-3 text-xs text-gray-400">
+                          {destination.distance_km != null
+                            ? `Approx. straight-line distance: ${destination.distance_km.toFixed(2)} km`
+                            : 'Distance unavailable'}
+                        </div>
+
                         <div className="flex items-center justify-end">
                           <button
                             type="button"
@@ -551,6 +592,128 @@ export default function HomePage() {
               ) : (
                 <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-gray-600">
                   No personalized suggestions yet. Search a few destinations or update your profile to build this section.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-14 border-t border-gray-200 pt-10">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-900">
+                  Recommended Packages
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Best-match packages ranked from your saved preferences.
+                </p>
+              </div>
+
+              {packagesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {[...Array(6)].map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-96 rounded-3xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : packagesError ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-6 py-4 text-amber-800">
+                  {packagesError}
+                </div>
+              ) : recommendedPackages.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {recommendedPackages.map((pkg) => (
+                    <div
+                      key={pkg.package_id}
+                      className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                    >
+                      <div className="relative h-52 bg-gray-100">
+                        {pkg.image ? (
+                          <img
+                            src={pkg.image}
+                            alt={pkg.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50">
+                            <span className="text-sm font-medium text-gray-400">
+                              No package image
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm backdrop-blur">
+                          {pkg.recommendation_reason || 'Best match'}
+                        </div>
+                      </div>
+
+                      <div className="p-6">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900">
+                              {pkg.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {pkg.destination_name || pkg.province || 'Nepal'}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl bg-blue-50 px-3 py-2 text-right">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                              Match
+                            </p>
+                            <p className="text-lg font-bold text-blue-700">
+                              {Math.round((pkg.match_score || 0) * 100)}%
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="mb-4 line-clamp-3 text-sm leading-6 text-gray-600">
+                          {pkg.description}
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-gray-50 p-4 text-sm">
+                          <div>
+                            <p className="text-gray-500">Budget</p>
+                            <p className="font-semibold text-gray-900">
+                              NPR {Number(pkg.budget || 0).toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Duration</p>
+                            <p className="font-semibold text-gray-900">
+                              {pkg.days || 'N/A'} days
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Transport</p>
+                            <p className="font-semibold text-gray-900 capitalize">
+                              {pkg.transport_mode || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Type</p>
+                            <p className="font-semibold text-gray-900 capitalize">
+                              {pkg.package_type || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 flex items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => pkg.package_id && navigate(`/package/${pkg.package_id}`)}
+                            className="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-gray-600">
+                  No package matches found yet. Update your preferences to improve the ranking.
                 </div>
               )}
             </div>

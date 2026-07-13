@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-import RouteMap from "../components/RouteMap";
+import { recommendationAPI } from "../services/api";
 
 export default function PackageDetail() {
   const { id } = useParams();
@@ -10,26 +9,26 @@ export default function PackageDetail() {
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState({});
 
+  const normalizePointList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item).trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'string') {
+      return value
+        .split(/\r?\n/)
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+    }
+
+    return [];
+  };
+
   useEffect(() => {
     const fetchPackage = async () => {
       try {
-        const token = localStorage.getItem("access");
-
-        const res = await axios.post(
-          "http://127.0.0.1:8000/api/recommend/",
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = res.data;
-        const results = data?.package_results || data?.results || data?.data || [];
-        const found = results.find((p) => p.package_id === parseInt(id));
-
-        setPkg(found || null);
+        const res = await recommendationAPI.getRecommendedPackage(id);
+        setPkg(res.data || null);
       } catch (err) {
         console.log("DETAIL ERROR:", err.response?.data || err.message);
       } finally {
@@ -108,33 +107,24 @@ export default function PackageDetail() {
         {/* PACKAGE INFO */}
         <div style={styles.infoCard}>
           <h2 style={styles.cardTitle}>{pkg.name}</h2>
-          <p style={styles.duration}>{pkg.duration_days} Days</p>
-          <p style={styles.price}>Price: INR {pkg.budget.toLocaleString()} / 1 Pax</p>
+          <p style={styles.duration}>{pkg.days} Days</p>
+          <p style={styles.price}>Price: NPR {Number(pkg.budget || 0).toLocaleString()} / 1 Pax</p>
+          <p style={styles.duration}>Travelers: {pkg.number_of_travelers || 'N/A'}</p>
           <p style={styles.description}>{pkg.description}</p>
+
         </div>
 
         {/* ITINERARY */}
         <div style={styles.itineraryCard}>
           <h2 style={styles.cardTitle}>Itinerary</h2>
 
-          {/* ROUTE MAP */}
-          {pkg.start_location && pkg.end_location && pkg.start_coords && pkg.end_coords && (
-            <RouteMap
-              startLocation={pkg.start_location}
-              endLocation={pkg.end_location}
-              startCoords={[pkg.start_coords.lat, pkg.start_coords.lng]}
-              endCoords={[pkg.end_coords.lat, pkg.end_coords.lng]}
-              itinerary={pkg.itinerary || []}
-            />
-          )}
-
           {/* INCLUDES & EXCLUDES */}
           <div style={styles.includesExcludes}>
             <div style={styles.includesBox}>
               <h4 style={styles.includesTitle}>Includes</h4>
               <ul style={styles.includesList}>
-                {pkg.includes && pkg.includes.length > 0 ? (
-                  pkg.includes.map((item, idx) => <li key={idx}>{item}</li>)
+                {normalizePointList(pkg.includes).length > 0 ? (
+                  normalizePointList(pkg.includes).map((item, idx) => <li key={idx}>{item}</li>)
                 ) : (
                   <li>No specific inclusions listed</li>
                 )}
@@ -144,8 +134,8 @@ export default function PackageDetail() {
             <div style={styles.excludesBox}>
               <h4 style={styles.excludesTitle}>Excludes</h4>
               <ul style={styles.excludesList}>
-                {pkg.excludes && pkg.excludes.length > 0 ? (
-                  pkg.excludes.map((item, idx) => <li key={idx}>{item}</li>)
+                {normalizePointList(pkg.excludes).length > 0 ? (
+                  normalizePointList(pkg.excludes).map((item, idx) => <li key={idx}>{item}</li>)
                 ) : (
                   <li>No specific exclusions listed</li>
                 )}
@@ -301,6 +291,18 @@ const styles = {
     color: "#52627c",
   },
 
+  mapButton: {
+    marginTop: "12px",
+    background: "#16a34a",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "10px",
+    padding: "10px 16px",
+    fontWeight: "700",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+
   itineraryCard: {
     background: "#ffffff",
     border: "1px solid #dbe4f0",
@@ -332,11 +334,12 @@ const styles = {
 
   includesList: {
     margin: 0,
-    paddingLeft: "18px",
+    paddingLeft: "20px",
     fontSize: "13px",
     color: "#166534",
     lineHeight: "1.5",
     textAlign: "left",
+    listStyleType: "disc",
   },
 
   excludesBox: {
@@ -355,11 +358,12 @@ const styles = {
 
   excludesList: {
     margin: 0,
-    paddingLeft: "18px",
+    paddingLeft: "20px",
     fontSize: "13px",
     color: "#7f1d1d",
     lineHeight: "1.5",
     textAlign: "left",
+    listStyleType: "disc",
   },
 
   timeline: {

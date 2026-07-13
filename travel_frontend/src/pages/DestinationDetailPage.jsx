@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import RouteMap from '../components/RouteMap';
 
 export default function DestinationDetailPage() {
   const { destinationId } = useParams();
@@ -13,8 +12,7 @@ export default function DestinationDetailPage() {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedPackage, setExpandedPackage] = useState(null);
-  const [showRouteMap, setShowRouteMap] = useState(false);
+  const [expandedPackages, setExpandedPackages] = useState({});
 
   const destination = location.state?.destination;
 
@@ -50,11 +48,24 @@ export default function DestinationDetailPage() {
   };
 
   const toggleItinerary = (packageId) => {
-    if (expandedPackage === packageId) {
-      setExpandedPackage(null);
-    } else {
-      setExpandedPackage(packageId);
+    setExpandedPackages((prev) => ({
+      ...prev,
+      [packageId]: !prev[packageId],
+    }));
+  };
+
+  const handleViewMap = () => {
+    const userLat = user?.latitude;
+    const userLon = user?.longitude;
+    const destLat = destination?.latitude;
+    const destLon = destination?.longitude;
+
+    if (userLat == null || userLon == null || destLat == null || destLon == null) {
+      return;
     }
+
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${userLat},${userLon}`)}&destination=${encodeURIComponent(`${destLat},${destLon}`)}&travelmode=driving`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   if (!destination) {
@@ -104,10 +115,10 @@ export default function DestinationDetailPage() {
               {/* View on Map Button */}
               {user && user.latitude && user.longitude && destination.latitude && destination.longitude && (
                 <button
-                  onClick={() => setShowRouteMap(true)}
+                  onClick={handleViewMap}
                   className="w-fit px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm"
                 >
-                  View Route on Map
+                  View Route on Google Maps
                 </button>
               )}
 
@@ -270,6 +281,16 @@ export default function DestinationDetailPage() {
                             'N/A'}
                         </p>
                       </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">
+                          Travelers
+                        </p>
+
+                        <p className="text-sm font-semibold text-gray-700">
+                          {pkg.number_of_travelers || 'N/A'}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Locations */}
@@ -288,28 +309,32 @@ export default function DestinationDetailPage() {
                     </div>
 
                     {/* Includes */}
-                    {pkg.includes && (
+                    {Array.isArray(pkg.includes) && pkg.includes.length > 0 && (
                       <div className="mb-4">
                         <h4 className="font-semibold text-green-700 mb-2">
                           Includes
                         </h4>
 
-                        <p className="text-sm text-gray-600">
-                          {pkg.includes}
-                        </p>
+                        <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                          {pkg.includes.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
                     {/* Excludes */}
-                    {pkg.excludes && (
+                    {Array.isArray(pkg.excludes) && pkg.excludes.length > 0 && (
                       <div className="mb-4">
                         <h4 className="font-semibold text-red-700 mb-2">
                           Excludes
                         </h4>
 
-                        <p className="text-sm text-gray-600">
-                          {pkg.excludes}
-                        </p>
+                        <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                          {pkg.excludes.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 
@@ -320,13 +345,13 @@ export default function DestinationDetailPage() {
                       }
                       className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
                     >
-                      {expandedPackage === pkg.package_id
+                      {expandedPackages[pkg.package_id]
                         ? 'Hide Itinerary'
                         : 'View Full Itinerary'}
                     </button>
 
                     {/* Itinerary */}
-                    {expandedPackage === pkg.package_id && (
+                    {expandedPackages[pkg.package_id] && (
                       <div className="mt-6 border-t pt-6">
                         <h4 className="text-xl font-bold text-gray-900 mb-4">
                           Travel Itinerary
@@ -391,17 +416,6 @@ export default function DestinationDetailPage() {
         </div>
       </main>
 
-      {/* Route Map Modal */}
-      {showRouteMap && user && user.latitude && user.longitude && destination.latitude && destination.longitude && (
-        <RouteMap
-          userLat={parseFloat(user.latitude)}
-          userLon={parseFloat(user.longitude)}
-          destLat={parseFloat(destination.latitude)}
-          destLon={parseFloat(destination.longitude)}
-          destName={destination.name}
-          onClose={() => setShowRouteMap(false)}
-        />
-      )}
     </div>
   );
 }
