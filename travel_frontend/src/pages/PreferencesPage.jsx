@@ -28,6 +28,8 @@ export default function PreferencesPage() {
 
   const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
 
+  const isBagmati = (p) => String(p).trim().toLowerCase() === 'bagmati';
+
   const normalizeProvinceList = (value) => {
     if (Array.isArray(value)) {
       return value.map((province) => String(province).trim()).filter(Boolean);
@@ -58,13 +60,13 @@ export default function PreferencesPage() {
   };
 
   useEffect(() => {
-    const initialProvinces = normalizeProvinceList(user?.preferred_provinces);
+    const initialProvinces = normalizeProvinceList(user?.preferred_provinces).filter((province) => !isBagmati(province));
     if (initialProvinces.length > 0) {
       setSelectedProvinces(initialProvinces);
       return;
     }
 
-    const storedProvinces = getStoredProvinceList();
+    const storedProvinces = getStoredProvinceList().filter((province) => !isBagmati(province));
     if (storedProvinces.length > 0) {
       setSelectedProvinces(storedProvinces);
     }
@@ -89,7 +91,8 @@ export default function PreferencesPage() {
     try {
       const response = await recommendationAPI.getProvinces();
       const provincesList = Array.isArray(response.data) ? response.data : (response.data.results || []);
-      setProvinces(provincesList);
+      const filteredProvinces = provincesList.filter((province) => !isBagmati(province));
+      setProvinces(filteredProvinces);
     } catch (err) {
       console.error('Error fetching provinces:', err);
     }
@@ -99,9 +102,9 @@ export default function PreferencesPage() {
     try {
       const response = await recommendationAPI.getUserProfile();
       const profile = response.data;
-      const profileProvinces = normalizeProvinceList(profile.preferred_provinces);
-      const fallbackProvinces = normalizeProvinceList(user?.preferred_provinces);
-      const storedProvinces = getStoredProvinceList();
+      const profileProvinces = normalizeProvinceList(profile.preferred_provinces).filter((province) => !isBagmati(province));
+      const fallbackProvinces = normalizeProvinceList(user?.preferred_provinces).filter((province) => !isBagmati(province));
+      const storedProvinces = getStoredProvinceList().filter((province) => !isBagmati(province));
       const resolvedProvinces = profileProvinces.length > 0
         ? profileProvinces
         : (fallbackProvinces.length > 0 ? fallbackProvinces : storedProvinces);
