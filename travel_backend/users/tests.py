@@ -26,6 +26,20 @@ class UserProfileAPITests(APITestCase):
 		self.client.force_authenticate(user=self.user)
 		self.profile_url = reverse("profile")
 
+	def test_register_rejects_duplicate_email(self):
+		response = self.client.post(
+			reverse("register"),
+			{
+				"username": "another-user",
+				"email": "profile@example.com",
+				"password": "strong-pass-123",
+			},
+			format="json",
+		)
+
+		self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+		self.assertIn("email", response.data)
+
 	def test_profile_payload_supports_completion_check_fields(self):
 		response = self.client.get(self.profile_url, format="json")
 

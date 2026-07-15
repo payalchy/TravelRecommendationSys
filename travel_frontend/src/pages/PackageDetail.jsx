@@ -112,6 +112,13 @@ export default function PackageDetail() {
           <p style={styles.duration}>Travelers: {pkg.number_of_travelers || 'N/A'}</p>
           <p style={styles.description}>{pkg.description}</p>
 
+          <button
+            onClick={() => navigate(`/booking/${pkg.package_id || id}`)}
+            style={styles.bookingButton}
+          >
+            Booking
+          </button>
+
         </div>
 
         {/* ITINERARY */}
@@ -289,6 +296,18 @@ const styles = {
     fontSize: "14px",
     lineHeight: "1.75",
     color: "#475569",
+  },
+
+  bookingButton: {
+    marginTop: "16px",
+    background: "#16a34a",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "10px",
+    padding: "10px 16px",
+    fontWeight: "700",
+    cursor: "pointer",
+    fontSize: "14px",
   },
 
   mapButton: {

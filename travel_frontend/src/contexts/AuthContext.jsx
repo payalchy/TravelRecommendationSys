@@ -34,21 +34,30 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('access_token'));
+  const [hasRecommendationHistory, setHasRecommendationHistory] = useState(false);
 
   const refreshUserProfile = async () => {
     try {
-      const response = await recommendationAPI.getUserProfile();
-      if (response.data) {
-        const preferredProvinces = normalizeProvinceList(response.data.preferred_provinces);
+      const [profileResponse, historyResponse] = await Promise.all([
+        recommendationAPI.getUserProfile(),
+        recommendationAPI.getUserSearchHistory().catch(() => ({ data: [] })),
+      ]);
+
+      if (profileResponse.data) {
+        const preferredProvinces = normalizeProvinceList(profileResponse.data.preferred_provinces);
         setUser({
-          ...response.data,
+          ...profileResponse.data,
           preferred_provinces: preferredProvinces.length > 0 ? preferredProvinces : getStoredProvinceList(),
         });
       }
+
+      const history = Array.isArray(historyResponse?.data) ? historyResponse.data : [];
+      setHasRecommendationHistory(history.length > 0);
     } catch (error) {
       localStorage.removeItem('access_token');
       setToken(null);
       setUser(null);
+      setHasRecommendationHistory(false);
     } finally {
       setLoading(false);
     }
@@ -81,6 +90,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('access_token');
     setToken(null);
     setUser(null);
+    setHasRecommendationHistory(false);
   };
 
   const isAuthenticated = !!token && !!user;
@@ -90,6 +100,7 @@ export function AuthProvider({ children }) {
     token,
     loading,
     isAuthenticated,
+    hasRecommendationHistory,
     register,
     login,
     logout,

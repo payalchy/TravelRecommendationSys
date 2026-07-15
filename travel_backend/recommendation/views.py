@@ -10,8 +10,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Destination, TravelPackage, PackageItinerary
+from .models import Destination, TravelPackage, PackageItinerary, Booking
 from .engine import recommend_destinations_direct, recommend_packages
+from .serializers import BookingSerializer
 from users.models import SearchHistory
 
 
@@ -935,6 +936,34 @@ class RecommendedPackageDetailAPIView(APIView):
 
 
 # ---------------- DESTINATION PROVINCES API ----------------
+
+class BookingCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = BookingSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        booking = serializer.save(user=request.user)
+        response_serializer = BookingSerializer(booking)
+        return Response(
+            {
+                "message": "Booking request submitted successfully. Your booking is pending until admin updates the status.",
+                "booking": response_serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class BookingListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = Booking.objects.filter(user=request.user).select_related('package', 'package__end_location').order_by('-created_at')
+        serializer = BookingSerializer(bookings, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class DestinationProvinceListAPIView(APIView):
     permission_classes = [IsAuthenticated]

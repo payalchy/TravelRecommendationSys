@@ -317,6 +317,34 @@ class PackageItinerary(models.Model):
         return f"{self.package.name} - Day {self.day_number}"
 
 
+class Booking(models.Model):
+    STATUS_PENDING = 'pending'
+    STATUS_CONFIRMED = 'confirmed'
+    STATUS_NOT_AVAILABLE = 'not_available'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_CONFIRMED, 'Confirmed'),
+        (STATUS_NOT_AVAILABLE, 'Not Available'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bookings', null=True, blank=True,)
+    package = models.ForeignKey(TravelPackage, on_delete=models.CASCADE, related_name='bookings')
+    full_name = models.CharField(max_length=255)
+    contact_no = models.CharField(max_length=50)
+    email = models.EmailField()
+    payment_method = models.CharField(max_length=50, default='On Arrival')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    notice = models.TextField(default='You will receive a call for booking confirmation.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.full_name} - {self.package.name} - {self.status}"
+
+
 class Recommendation(models.Model):
     """
     Stores travel recommendations for users based on their preferences and destinations

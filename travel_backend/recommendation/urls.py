@@ -9,6 +9,8 @@ from .views import (
     RecommendedPackageDetailAPIView,
     DestinationPackagesAPIView,
     DestinationSearchAPIView,
+    BookingCreateAPIView,
+    BookingListAPIView,
 )
 
 
@@ -21,4 +23,6 @@ urlpatterns = [
     path("destination/geocode/", DestinationGeocodeAPIView.as_view(), name="destination-geocode"),
     path("destination/provinces/", DestinationProvinceListAPIView.as_view(), name="destination-provinces"),
     path("destinations/<int:destination_id>/packages/", DestinationPackagesAPIView.as_view(), name="destination-packages"),
+    path("recommend/bookings/", BookingCreateAPIView.as_view(), name="booking-create"),
+    path("recommend/bookings/history/", BookingListAPIView.as_view(), name="booking-history"),
 ]

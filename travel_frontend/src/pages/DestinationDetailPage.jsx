@@ -330,17 +330,24 @@ export default function DestinationDetailPage() {
                       </div>
                     )}
 
-                    {/* Button */}
-                    <button
-                      onClick={() =>
-                        toggleItinerary(pkg.package_id)
-                      }
-                      className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
-                    >
-                      {expandedPackages[pkg.package_id]
-                        ? 'Hide Itinerary'
-                        : 'View Full Itinerary'}
-                    </button>
+                    <div className="flex gap-3 flex-wrap">
+                      <button
+                        onClick={() =>
+                          toggleItinerary(pkg.package_id)
+                        }
+                        className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
+                      >
+                        {expandedPackages[pkg.package_id]
+                          ? 'Hide Itinerary'
+                          : 'View Full Itinerary'}
+                      </button>
+                      <button
+                        onClick={() => navigate(`/booking/${pkg.package_id}`)}
+                        className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
+                      >
+                        Booking
+                      </button>
+                    </div>
 
                     {/* Itinerary */}
                     {expandedPackages[pkg.package_id] && (

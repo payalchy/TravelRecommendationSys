@@ -33,7 +33,7 @@ export default function RegisterPage() {
     try {
       await register(formData.username, formData.email, formData.password);
       await login(formData.username, formData.password);
-      navigate('/preferences');
+      navigate('/preferences', { state: { fromRegistration: true } });
     } catch (err) {
       const errorMsg = err.response?.data?.error ||
                        err.response?.data?.username?.[0] ||

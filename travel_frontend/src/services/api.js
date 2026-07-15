@@ -119,6 +119,14 @@ export const recommendationAPI = {
   getRecommendedPackage: (packageId) =>
     api.get(`/recommend/available-packages/${packageId}/`),
 
+  // Create a booking request
+  createBooking: (payload) =>
+    api.post('/recommend/bookings/', payload),
+
+  // Get the logged-in user's booking history
+  getUserBookings: () =>
+    api.get('/recommend/bookings/history/'),
+
   // Get provinces list
   getProvinces: () =>
     api.get('/destination/provinces/'),
