@@ -12,6 +12,8 @@ import HomePage from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
 import DestinationDetailPage from './pages/DestinationDetailPage';
 import PackageDetail from './pages/PackageDetail';
+import BookingPage from './pages/BookingPage';
+import BookingHistoryPage from './pages/BookingHistoryPage';
 
 function App() {
   return (
@@ -61,6 +63,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <PackageDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/booking/:packageId"
+              element={
+                <ProtectedRoute>
+                  <BookingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/booking-history"
+              element={
+                <ProtectedRoute>
+                  <BookingHistoryPage />
                 </ProtectedRoute>
               }
             />

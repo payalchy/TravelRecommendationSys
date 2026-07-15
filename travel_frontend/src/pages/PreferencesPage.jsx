@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import MapPicker from '../components/MapPicker';
 
 export default function PreferencesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, refreshUserProfile } = useAuth();
   const [formData, setFormData] = useState({
     budget: '',
@@ -19,8 +20,8 @@ export default function PreferencesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [locationData, setLocationData] = useState({
-    latitude: 27.7172,
-    longitude: 85.324,
+    latitude: '',
+    longitude: '',
   });
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -164,8 +165,16 @@ export default function PreferencesPage() {
     const { name, value } = e.target;
     setLocationData((prev) => ({
       ...prev,
-      [name]: parseFloat(value),
+      [name]: value === '' ? '' : parseFloat(value),
     }));
+  };
+
+  const handleMapLocationSelected = (lat, lon) => {
+    setLocationData({
+      latitude: parseFloat(lat.toFixed(4)),
+      longitude: parseFloat(lon.toFixed(4)),
+    });
+    setShowMapPicker(false);
   };
 
   const handleGetLiveLocation = () => {
@@ -208,14 +217,6 @@ export default function PreferencesPage() {
     );
   };
 
-  const handleMapLocationSelected = (lat, lon) => {
-    setLocationData({
-      latitude: parseFloat(lat.toFixed(4)),
-      longitude: parseFloat(lon.toFixed(4)),
-    });
-    setShowMapPicker(false);
-  };
-
   const handleStyleToggle = (styleId) => {
     setFormData((prev) => ({
       ...prev,
@@ -233,6 +234,10 @@ export default function PreferencesPage() {
     );
   };
 
+  const showHomeButton = !location.state?.fromRegistration;
+  const defaultMapLat = Number.isFinite(Number(locationData.latitude)) ? Number(locationData.latitude) : 27.7172;
+  const defaultMapLon = Number.isFinite(Number(locationData.longitude)) ? Number(locationData.longitude) : 85.324;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -241,11 +246,14 @@ export default function PreferencesPage() {
     try {
       const updateData = {
         preferred_season: formData.preferred_season,
-        latitude: locationData.latitude,
-        longitude: locationData.longitude,
         preferred_provinces: selectedProvinces,
         preferred_travel_style_ids: formData.preferred_travel_style_ids,
       };
+
+      if (locationData.latitude !== '' && locationData.longitude !== '') {
+        updateData.latitude = locationData.latitude;
+        updateData.longitude = locationData.longitude;
+      }
 
       if (formData.budget !== '') {
         updateData.budget = parseFloat(formData.budget);
@@ -256,15 +264,13 @@ export default function PreferencesPage() {
 
       await recommendationAPI.updateUserProfile(updateData);
       storeProvinceSelection(selectedProvinces);
-      await refreshUserProfile();
 
-      recommendationAPI.getRecommendations({
+      await recommendationAPI.getRecommendations({
         ...updateData,
         save_history: true,
-      }).catch((recommendationError) => {
-        console.error('Recommendation save error:', recommendationError);
       });
 
+      await refreshUserProfile();
       navigate('/home', { replace: true });
     } catch (err) {
       console.error('Update error:', err);
@@ -284,13 +290,15 @@ export default function PreferencesPage() {
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-3xl font-bold text-gray-900">Travel Preferences</h1>
-          <button 
-            type="button"
-            onClick={() => navigate('/home')}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition flex items-center gap-2"
-          >
-            Home
-          </button>
+          {showHomeButton && (
+            <button 
+              type="button"
+              onClick={() => navigate('/home')}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition flex items-center gap-2"
+            >
+              Home
+            </button>
+          )}
         </div>
 
         {error && (
@@ -428,6 +436,7 @@ export default function PreferencesPage() {
                   step="0.0001"
                   value={locationData.latitude}
                   onChange={handleLocationChange}
+                  placeholder="e.g. 27.7172"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -442,13 +451,16 @@ export default function PreferencesPage() {
                   step="0.0001"
                   value={locationData.longitude}
                   onChange={handleLocationChange}
+                  placeholder="e.g. 85.324"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <p className="text-sm text-gray-500 mb-4">
-              Current: Latitude {locationData.latitude}, Longitude {locationData.longitude}
+              {locationData.latitude !== '' && locationData.longitude !== ''
+                ? `Current: Latitude ${locationData.latitude}, Longitude ${locationData.longitude}`
+                : 'Choose your location or use live location to populate the coordinates.'}
             </p>
 
             <div className="flex gap-2 flex-wrap">
@@ -481,12 +493,13 @@ export default function PreferencesPage() {
 
         {showMapPicker && (
           <MapPicker
-            initialLat={locationData.latitude}
-            initialLon={locationData.longitude}
+            initialLat={defaultMapLat}
+            initialLon={defaultMapLon}
             onLocationSelected={handleMapLocationSelected}
             onClose={() => setShowMapPicker(false)}
           />
         )}
+
       </div>
     </div>
   );

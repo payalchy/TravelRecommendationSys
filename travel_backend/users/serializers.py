@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from rest_framework.validators import UniqueValidator
 from .models import UserProfile, TravelStyle, SearchHistory
 
 
@@ -7,6 +8,15 @@ from .models import UserProfile, TravelStyle, SearchHistory
 # REGISTER SERIALIZER
 # =========================
 class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="This email is already registered. Please use a different email.",
+            )
+        ],
+    )
     password = serializers.CharField(write_only=True)
 
     class Meta:

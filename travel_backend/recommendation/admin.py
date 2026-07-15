@@ -14,7 +14,7 @@ import json
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .models import Destination, StartLocation, TravelPackage, PackageItinerary
+from .models import Destination, StartLocation, TravelPackage, PackageItinerary, Booking
 
 admin.site.site_header = "Travel Management Admin"
 admin.site.site_title = "Travel Admin"
@@ -201,6 +201,21 @@ class DestinationMapPickerWidget(forms.Widget):
             input_id,
             selected_label,
         )
+
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'full_name', 'email', 'package', 'contact_no', 'status', 'created_at')
+    list_editable = ('status',)
+    list_filter = ('status', 'created_at')
+    search_fields = ('full_name', 'email', 'contact_no', 'package__name', 'user__username')
+    ordering = ('-created_at',)
+    actions = ['delete_selected']
+    fieldsets = (
+        ('Booking Details', {
+            'fields': ('user', 'package', 'full_name', 'contact_no', 'email', 'payment_method', 'notice', 'status')
+        }),
+    )
+
 
 @admin.register(Destination)
 class DestinationAdmin(admin.ModelAdmin):

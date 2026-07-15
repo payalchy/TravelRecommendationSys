@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { recommendationAPI } from '../services/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,7 +22,11 @@ export default function LoginPage() {
 
     try {
       await login(formData.username, formData.password);
-      navigate('/home');
+
+      const historyResponse = await recommendationAPI.getUserSearchHistory().catch(() => ({ data: [] }));
+      const hasHistory = Array.isArray(historyResponse?.data) && historyResponse.data.length > 0;
+
+      navigate(hasHistory ? '/home' : '/preferences');
     } catch (err) {
       const errorMsg = err.response?.data?.detail ||
                        err.response?.data?.error ||

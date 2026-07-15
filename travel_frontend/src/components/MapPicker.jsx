@@ -7,10 +7,6 @@ export default function MapPicker({ initialLat, initialLon, onLocationSelected, 
   const [selectedLon, setSelectedLon] = useState(initialLon);
   const [map, setMap] = useState(null);
   const markerRef = useRef(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState('');
 
   useEffect(() => {
     // Load Google Maps API
@@ -67,68 +63,6 @@ export default function MapPicker({ initialLat, initialLon, onLocationSelected, 
     });
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearching(true);
-    setSearchError('');
-    setSearchResults([]);
-
-    try {
-      if (!window.google) {
-        setSearchError('Google Maps API not loaded');
-        setSearching(false);
-        return;
-      }
-
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode(
-        { address: `${searchQuery}, Nepal` },
-        (results, status) => {
-          if (status === window.google.maps.GeocoderStatus.OK && results && results.length > 0) {
-            const formattedResults = results.slice(0, 5).map((result) => ({
-              name: result.formatted_address,
-              lat: result.geometry.location.lat(),
-              lng: result.geometry.location.lng(),
-            }));
-            setSearchResults(formattedResults);
-            setSearchError('');
-          } else {
-            setSearchError('No locations found. Try a different search.');
-            setSearchResults([]);
-          }
-          setSearching(false);
-        }
-      );
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchError('Failed to search. Please try again.');
-      setSearching(false);
-    }
-  };
-
-  const handleSelectSearchResult = (result) => {
-    const lat = result.lat;
-    const lng = result.lng;
-
-    setSelectedLat(lat);
-    setSelectedLon(lng);
-    setSearchQuery('');
-    setSearchResults([]);
-
-    if (map && markerRef.current) {
-      const newPosition = { lat, lng };
-      markerRef.current.setPosition(newPosition);
-      map.panTo(newPosition);
-      map.setZoom(13);
-    }
-  };
-
   const handleConfirm = () => {
     onLocationSelected(selectedLat, selectedLon);
   };
@@ -145,57 +79,6 @@ export default function MapPicker({ initialLat, initialLon, onLocationSelected, 
           >
             ✕
           </button>
-        </div>
-
-        {/* Search Bar */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <form onSubmit={handleSearch} className="relative">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for landmarks, cities, or places..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                type="submit"
-                disabled={searching}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
-              >
-                {searching ? 'Searching...' : 'Search'}
-              </button>
-            </div>
-
-            {/* Search Error */}
-            {searchError && (
-              <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-                {searchError}
-              </div>
-            )}
-
-            {/* Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-12 left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 mt-1">
-                <ul className="max-h-48 overflow-y-auto">
-                  {searchResults.map((result, index) => (
-                    <li key={index}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectSearchResult(result)}
-                        className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition"
-                      >
-                        <p className="font-medium text-gray-900">{result.name}</p>
-                        <p className="text-sm text-gray-500">
-                          Lat: {result.lat.toFixed(4)}, Lon: {result.lng.toFixed(4)}
-                        </p>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </form>
         </div>
 
         {/* Map Container */}
