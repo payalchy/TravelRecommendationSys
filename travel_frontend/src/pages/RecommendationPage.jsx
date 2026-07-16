@@ -9,6 +9,9 @@ export default function RecommendationPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  const [searchCount, setSearchCount] = useState(0);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -27,9 +30,11 @@ export default function RecommendationPage() {
     }
   };
 
-  const handleDestinationSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) {
+  const handleDestinationSearch = async (e, append = false) => {
+    e?.preventDefault?.();
+    const trimmedQuery = searchQuery.trim();
+
+    if (!trimmedQuery) {
       setSearchError('Enter a place name or city to search.');
       return;
     }
@@ -38,8 +43,14 @@ export default function RecommendationPage() {
     setSearchError(null);
 
     try {
-      const response = await recommendationAPI.searchDestinations(searchQuery.trim());
-      setSearchResults(response.data.results || []);
+      const currentOffset = append ? searchOffset : 0;
+      const response = await recommendationAPI.searchDestinations(trimmedQuery, currentOffset, 6);
+      const nextResults = response.data.results || [];
+
+      setSearchResults((prev) => append ? [...prev, ...nextResults] : nextResults);
+      setSearchCount(response.data.count || 0);
+      setSearchOffset(currentOffset + nextResults.length);
+      setHasMoreSearchResults(Boolean(response.data.has_more));
     } catch (err) {
       setSearchError(err.response?.data?.error || 'Failed to search destinations');
       console.error('Destination search error:', err);
@@ -79,12 +90,28 @@ export default function RecommendationPage() {
         )}
         {searchResults.length > 0 && (
           <div className="mt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Search results</h3>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Search results</h3>
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                {searchCount} relevant destinations
+              </span>
+            </div>
             <div className="grid grid-cols-1 gap-4">
               {searchResults.map((destination, idx) => (
                 <DestinationCard key={destination.destination_id} destination={destination} index={idx} />
               ))}
             </div>
+            {hasMoreSearchResults && (
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={(e) => handleDestinationSearch(e, true)}
+                  className="px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+                >
+                  Load more
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
