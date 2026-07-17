@@ -52,79 +52,6 @@ div.breadcrumbs a {
   color: var(--text-main);
 }
 
-#nav-sidebar tr[class*="app-"] {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-}
-
-#nav-sidebar tr[class*="app-"],
-#nav-sidebar tr[class*="app-"] th,
-#nav-sidebar tr[class*="app-"] td,
-#nav-sidebar tr[class*="model-"],
-#nav-sidebar tr[class*="model-"] th,
-#nav-sidebar tr[class*="model-"] td,
-#nav-sidebar tr.current-app,
-#nav-sidebar tr.current-app th,
-#nav-sidebar tr.current-app td,
-#nav-sidebar tr.current-model,
-#nav-sidebar tr.current-model th,
-#nav-sidebar tr.current-model td {
-  background: var(--bg-main) !important;
-}
-
-#nav-sidebar tr[class*="app-"] th,
-#nav-sidebar tr[class*="app-"] td,
-#nav-sidebar tr[class*="model-"] th,
-#nav-sidebar tr[class*="model-"] td {
-  background: var(--bg-main) !important;
-}
-
-#nav-sidebar tr[class*="model-"] a {
-  display: block;
-  margin: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar li,
-#nav-sidebar li a,
-#nav-sidebar li a:link,
-#nav-sidebar li a:visited,
-#nav-sidebar li a:hover,
-#nav-sidebar li a:active,
-#nav-sidebar li.current-model,
-#nav-sidebar li.current-model a,
-#nav-sidebar li.current-app,
-#nav-sidebar li.current-app a {
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar li.current-model,
-#nav-sidebar li.current-app,
-#nav-sidebar li.current-model a,
-#nav-sidebar li.current-app a {
-  background: transparent !important;
-}
-
-#nav-sidebar tr[class*="model-"] a,
-#nav-sidebar tr[class*="model-"] a:link,
-#nav-sidebar tr[class*="model-"] a:visited,
-#nav-sidebar tr[class*="model-"] a:hover,
-#nav-sidebar tr[class*="model-"] a:active,
-#nav-sidebar .current-model a,
-#nav-sidebar .current-app a {
-  background: var(--bg-main) !important;
-  color: var(--text-main) !important;
-}
-
-#nav-sidebar tr[class*="model-"] a:hover,
-#nav-sidebar .current-model a {
-  background: rgba(110, 165, 255, 0.22);
-  color: #ffffff;
-}
-
 .module h2,
 .module caption,
 .inline-group h2 {
@@ -166,19 +93,15 @@ input[type=button]:hover,
 .change-list .actions,
 .change-list .paginator,
 .change-list #changelist-filter {
-  background: var(--bg-panel) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border) !important;
-}
-
-.change-list #changelist table {
-  border: 1px solid var(--border) !important;
+  background: var(--bg-panel);
+  color: var(--text-main);
+  border-color: var(--border);
 }
 
 .change-list #changelist table thead th {
-  background: #202f5f !important;
-  color: var(--text-main) !important;
-  border-bottom: 1px solid var(--border) !important;
+  background: #172033;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border);
 }
 
 .change-list #changelist table tbody tr,
@@ -243,9 +166,9 @@ input[type=button]:hover,
 
 .tm-admin-badge,
 .tm-admin-edit-btn {
-  background: #dce8ff;
-  border: 1px solid #9fb8ef;
-  color: #173670;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #0f172a;
   border-radius: 999px;
 }
 
@@ -294,10 +217,12 @@ input[type=button]:hover,
 
 .tm-admin-thumb-empty {
   background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.12);
   color: var(--text-main);
 }
 
 .tm-dashboard {
+  padding: 8px 0 24px;
   padding: 8px 0 24px;
 }
 
@@ -306,10 +231,14 @@ input[type=button]:hover,
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  background: linear-gradient(180deg, #121a35, #141d3a);
+  background: linear-gradient(180deg, #111827, #172033);
   border-radius: 18px;
-  padding: 18px 18px 14px;
+  padding: 18px;
   margin-bottom: 16px;
+}
+
+footer.app-footer {
+  display: none !important;
 }
 
 .tm-dashboard-title {
@@ -372,6 +301,7 @@ input[type=button]:hover,
 .tm-panel h2 {
   margin: 0 0 10px;
   font-size: 18px;
+  color: #ffffff;
 }
 
 .tm-activity-list,
@@ -434,6 +364,62 @@ input[type=button]:hover,
 
 .tm-empty {
   color: var(--text-muted);
+}
+
+/* Make autocomplete dropdown text readable in admin dark theme */
+.select2-container--admin-autocomplete .select2-selection--single,
+.select2-container--admin-autocomplete .select2-selection--multiple,
+.select2-container--admin-autocomplete .select2-selection,
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple,
+.select2-container--default .select2-selection {
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered,
+.select2-container--admin-autocomplete .select2-selection__rendered *,
+.select2-container--admin-autocomplete .select2-selection__placeholder,
+.select2-container--admin-autocomplete .select2-selection__choice,
+.select2-container--admin-autocomplete .select2-search__field,
+.select2-container--admin-autocomplete .select2-results__option,
+.select2-container--admin-autocomplete .select2-results__option[aria-selected],
+.select2-container--admin-autocomplete .select2-results__option--highlighted,
+.select2-container .select2-selection__rendered,
+.select2-container .select2-selection__rendered *,
+.select2-container .select2-selection__placeholder,
+.select2-container .select2-selection__choice,
+.select2-container .select2-search__field,
+.select2-container .select2-results__option,
+.select2-container .select2-results__option[aria-selected],
+.select2-container .select2-results__option--highlighted,
+.select2-container .select2-dropdown,
+.select2-container .select2-dropdown--above,
+.select2-container .select2-dropdown--below,
+.ui-autocomplete,
+.ui-autocomplete li,
+.ui-autocomplete .ui-menu-item,
+.ui-autocomplete .ui-menu-item-wrapper,
+.ui-autocomplete .ui-menu-item .ui-menu-item-wrapper,
+.autocomplete {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered,
+.select2-container--default .select2-selection__rendered {
+  color: #0f172a !important;
+}
+
+.select2-container--admin-autocomplete .select2-selection__rendered *,
+.select2-container--default .select2-selection__rendered * {
+  color: #0f172a !important;
+}
+
+.ui-autocomplete .ui-menu-item-wrapper:hover,
+.select2-results__option--highlighted {
+  background: #ebf4ff !important;
 }
 
 @media (max-width: 900px) {

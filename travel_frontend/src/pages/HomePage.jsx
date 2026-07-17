@@ -405,7 +405,7 @@ export default function HomePage() {
                     onClick={() => handleDestinationSearch(searchQuery, true)}
                     className="px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                   >
-                    Load more
+                    Load More
                   </button>
                 </div>
               )}
