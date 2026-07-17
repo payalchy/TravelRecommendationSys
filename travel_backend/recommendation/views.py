@@ -994,25 +994,40 @@ class DestinationSearchAPIView(APIView):
         query = str(
             request.query_params.get("q", "")
         ).strip()
+        limit = int(request.query_params.get("limit", 6))
+        offset = int(request.query_params.get("offset", 0))
+
+        if limit < 1:
+            limit = 6
+        if offset < 0:
+            offset = 0
 
         # ---------------- EMPTY QUERY ----------------
 
         if not query:
             return Response(
-                {"results": []},
+                {
+                    "results": [],
+                    "count": 0,
+                    "has_more": False,
+                },
                 status=status.HTTP_200_OK,
             )
 
         # ---------------- SEARCH DESTINATIONS ----------------
 
-        destinations = (
+        destinations_qs = (
             Destination.objects.filter(
-                Q(pName__istartswith=query)
+                Q(pName__icontains=query)
                 | Q(province__icontains=query)
+                | Q(city__icontains=query)
             )
             .order_by("pName")
-            .distinct()[:30]
+            .distinct()
         )
+
+        total_count = destinations_qs.count()
+        destinations = destinations_qs[offset:offset + limit]
 
         results = []
 
@@ -1023,6 +1038,7 @@ class DestinationSearchAPIView(APIView):
                     "destination_id": destination.id,
                     "name": destination.pName,
                     "province": destination.province,
+                    "city": destination.city,
                     "latitude": destination.latitude,
                     "longitude": destination.longitude,
                     "image": (
@@ -1043,16 +1059,18 @@ class DestinationSearchAPIView(APIView):
         # ---------------- SAVE SEARCH HISTORY ----------------
 
         if request.user.is_authenticated and query:
-          SearchHistory.objects.create(
-            user=request.user,
-                        query=query,
-                        destination_results=results,
+            SearchHistory.objects.create(
+                user=request.user,
+                query=query,
+                destination_results=results,
             )
         # ---------------- RESPONSE ----------------
 
         return Response(
             {
-                "results": results
+                "results": results,
+                "count": total_count,
+                "has_more": offset + len(results) < total_count,
             },
             status=status.HTTP_200_OK,
         )

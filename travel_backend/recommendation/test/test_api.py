@@ -78,13 +78,17 @@ class RecommendationAPITest(APITestCase):
 
         response = self.client.get(
             url,
-            {"q": "Pokhara"}
+            {"q": "Pokhara", "limit": 1, "offset": 0}
         )
 
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
         )
+        self.assertIn("results", response.data)
+        self.assertIn("count", response.data)
+        self.assertIn("has_more", response.data)
+        self.assertGreaterEqual(response.data["count"], 1)
 
     def test_destination_province_api(self):
 

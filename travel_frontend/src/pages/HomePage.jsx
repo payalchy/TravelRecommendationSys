@@ -22,6 +22,9 @@ export default function HomePage() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [searchCount, setSearchCount] = useState(0);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(false);
   const [distanceLabels, setDistanceLabels] = useState({});
   const [showFollowUpRecommendations, setShowFollowUpRecommendations] = useState(false);
 
@@ -212,12 +215,16 @@ export default function HomePage() {
   };
 
   // AUTO SEARCH
-  const handleDestinationSearch = async (query) => {
+  const handleDestinationSearch = async (query, append = false) => {
 
+    const trimmedQuery = query.trim();
     setSearchQuery(query);
 
-    if (!query.trim()) {
+    if (!trimmedQuery) {
       setSearchResults([]);
+      setSearchCount(0);
+      setSearchOffset(0);
+      setHasMoreSearchResults(false);
       return;
     }
 
@@ -226,14 +233,20 @@ export default function HomePage() {
       setSearchLoading(true);
       setSearchError('');
 
-      const response =
-        await recommendationAPI.searchDestinations(
-          query
-        );
-
-      setSearchResults(
-        response.data.results || []
+      const currentOffset = append ? searchOffset : 0;
+      const response = await recommendationAPI.searchDestinations(
+        trimmedQuery,
+        currentOffset,
+        6
       );
+
+      const nextResults = response.data.results || [];
+      const totalCount = response.data.count || 0;
+
+      setSearchResults((prev) => append ? [...prev, ...nextResults] : nextResults);
+      setSearchCount(totalCount);
+      setSearchOffset(currentOffset + nextResults.length);
+      setHasMoreSearchResults(Boolean(response.data.has_more));
 
     } catch (err) {
 
@@ -345,9 +358,14 @@ export default function HomePage() {
           {searchResults.length > 0 && (
             <div className="mt-6">
 
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Search Results
-              </h3>
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Search Results
+                </h3>
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
+                  {searchCount} relevant destinations
+                </span>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
@@ -379,6 +397,18 @@ export default function HomePage() {
                 ))}
 
               </div>
+
+              {hasMoreSearchResults && (
+                <div className="mt-5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleDestinationSearch(searchQuery, true)}
+                    className="px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

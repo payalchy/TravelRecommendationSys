@@ -94,9 +94,9 @@ export const recommendationAPI = {
     api.get('/users/search-history/'),
 
   // Search destinations by name, city, or tags
-  searchDestinations: (query) =>
+  searchDestinations: (query, offset = 0, limit = 6) =>
     api.get('/destination/search/', {
-      params: { q: query },
+      params: { q: query, offset, limit },
     }),
 
   // ---------- RECOMMENDATIONS ----------
