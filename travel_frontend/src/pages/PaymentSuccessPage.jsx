@@ -179,7 +179,7 @@ export default function PaymentSuccessPage() {
                 {/* Action Buttons */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
                   <button
-                    onClick={() => navigate('/bookings')}
+                    onClick={() => navigate('/booking-history')}
                     className="bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
                   >
                     View My Bookings
