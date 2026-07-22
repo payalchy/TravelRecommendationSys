@@ -13,6 +13,11 @@ export default function DestinationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedPackages, setExpandedPackages] = useState({});
+  const [ratings, setRatings] = useState({});
+  const [ratingSubmitting, setRatingSubmitting] = useState({});
+  const [ratingErrors, setRatingErrors] = useState({});
+  const [ratingSuccesses, setRatingSuccesses] = useState({});
+  const [ratedPackages, setRatedPackages] = useState({});
 
   const destination = location.state?.destination;
 
@@ -52,6 +57,51 @@ export default function DestinationDetailPage() {
       ...prev,
       [packageId]: !prev[packageId],
     }));
+  };
+
+  const submitRating = async (packageId) => {
+    const score = ratings[packageId];
+    if (!score || score < 1 || score > 5) {
+      setRatingErrors((prev) => ({
+        ...prev,
+        [packageId]: 'Please select a rating between 1 and 5.',
+      }));
+      return;
+    }
+
+    setRatingSubmitting((prev) => ({ ...prev, [packageId]: true }));
+    setRatingErrors((prev) => ({ ...prev, [packageId]: '' }));
+    setRatingSuccesses((prev) => ({ ...prev, [packageId]: '' }));
+
+    try {
+      const response = await recommendationAPI.ratePackage(packageId, { score });
+
+      setRatedPackages((prev) => ({ ...prev, [packageId]: true }));
+      setRatingSuccesses((prev) => ({
+        ...prev,
+        [packageId]: 'Thank you for your feedback',
+      }));
+
+      setPackages((prevPackages) =>
+        prevPackages.map((pkg) =>
+          pkg.package_id === packageId
+            ? {
+                ...pkg,
+                average_rating: response.data.average_rating,
+                rating_count: response.data.rating_count,
+              }
+            : pkg
+        )
+      );
+    } catch (err) {
+      setRatingErrors((prev) => ({
+        ...prev,
+        [packageId]: err.response?.data?.error || 'Failed to submit rating.',
+      }));
+      console.error('Rating submission error:', err);
+    } finally {
+      setRatingSubmitting((prev) => ({ ...prev, [packageId]: false }));
+    }
   };
 
   const handleViewMap = () => {
@@ -329,6 +379,58 @@ export default function DestinationDetailPage() {
                         </ul>
                       </div>
                     )}
+
+                    {/* Rating Section */}
+                    <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">
+                        Rating: {Number(pkg.average_rating || 0).toFixed(1)} / 5 ({pkg.rating_count || 0} reviews)
+                      </p>
+                      {!ratedPackages[pkg.package_id] ? (
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Rate this package:
+                          </label>
+                          <select
+                            value={ratings[pkg.package_id] || 0}
+                            onChange={(e) =>
+                              setRatings((prev) => ({
+                                ...prev,
+                                [pkg.package_id]: Number(e.target.value),
+                              }))
+                            }
+                            className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                          >
+                            <option value={0}>Select rating</option>
+                            <option value={1}>1 - Poor</option>
+                            <option value={2}>2 - Fair</option>
+                            <option value={3}>3 - Good</option>
+                            <option value={4}>4 - Very Good</option>
+                            <option value={5}>5 - Excellent</option>
+                          </select>
+                          <button
+                            onClick={() => submitRating(pkg.package_id)}
+                            disabled={ratingSubmitting[pkg.package_id]}
+                            className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white py-2 rounded-lg transition font-semibold text-sm"
+                          >
+                            {ratingSubmitting[pkg.package_id] ? 'Submitting...' : 'Submit Rating'}
+                          </button>
+                          {ratingErrors[pkg.package_id] && (
+                            <p className="text-xs text-red-600">
+                              {ratingErrors[pkg.package_id]}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-green-600 font-semibold">
+                           Submitted
+                        </p>
+                      )}
+                      {ratingSuccesses[pkg.package_id] && (
+                        <p className="text-xs text-green-600 mt-2">
+                          {ratingSuccesses[pkg.package_id]}
+                        </p>
+                      )}
+                    </div>
 
                     <div className="flex gap-3 flex-wrap">
                       <button

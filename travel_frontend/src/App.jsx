@@ -14,6 +14,7 @@ import DestinationDetailPage from './pages/DestinationDetailPage';
 import PackageDetail from './pages/PackageDetail';
 import BookingPage from './pages/BookingPage';
 import BookingHistoryPage from './pages/BookingHistoryPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 
 function App() {
   return (
@@ -79,6 +80,20 @@ function App() {
               element={
                 <ProtectedRoute>
                   <BookingHistoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route              path="/payment-success"
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccessPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route              path="/payment-success/:bookingId?"
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccessPage />
                 </ProtectedRoute>
               }
             />

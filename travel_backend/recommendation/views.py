@@ -1,4 +1,6 @@
 from collections import defaultdict
+import os
+from pathlib import Path
 
 from django.db.models import Q
 import json
@@ -10,10 +12,47 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Destination, TravelPackage, PackageItinerary, Booking
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+from dotenv import load_dotenv
+from .models import Destination, TravelPackage, PackageItinerary, Booking, PackageRating
 from .engine import recommend_destinations_direct, recommend_packages
 from .serializers import BookingSerializer
 from users.models import SearchHistory
+
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+
+# Stripe SDK and timezone helper
+import stripe
+from django.utils import timezone
+
+
+def _get_payment_setting(name, default=None):
+    """Read payment-related env var, fall back to Django settings."""
+    value = os.getenv(name)
+    if value is not None and str(value).strip() != "":
+        return value
+    return getattr(settings, name, default)
+
+# Backwards compatibility alias for older Khalti helper
+_get_khalti_setting = _get_payment_setting
+
+
+def _normalize_payment_method(value):
+    if value is None:
+        return ''
+    return str(value).strip().lower()
+
+
+def _is_online_payment(method):
+    normalized = _normalize_payment_method(method)
+    return normalized in {'online', 'online payment', 'card', 'card payment'}
+
+
+def _is_cash_payment(method):
+    normalized = _normalize_payment_method(method)
+    return normalized in {'cash', 'on arrival', 'pay later', 'cash payment'}
 
 
 # ---------------- HELPER FUNCTION ----------------
@@ -935,6 +974,49 @@ class RecommendedPackageDetailAPIView(APIView):
         )
 
 
+class PackageRatingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, package_id):
+        package = get_object_or_404(TravelPackage, id=package_id)
+
+        try:
+            score = int(request.data.get("score"))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Score must be an integer between 1 and 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if score < 1 or score > 5:
+            return Response(
+                {"error": "Score must be between 1 and 5."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if PackageRating.objects.filter(package=package, user=request.user).exists():
+            return Response(
+                {"error": "You have already rated this package."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rating = PackageRating.objects.create(
+            package=package,
+            user=request.user,
+            score=score,
+        )
+
+        return Response(
+            {
+                "package_id": package.id,
+                "average_rating": package.average_rating,
+                "rating_count": package.rating_count,
+                "your_rating": rating.score,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
 # ---------------- DESTINATION PROVINCES API ----------------
 
 class BookingCreateAPIView(APIView):
@@ -946,11 +1028,20 @@ class BookingCreateAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         booking = serializer.save(user=request.user)
+
+        if _is_cash_payment(booking.payment_method):
+            booking.payment_status = Booking.PAYMENT_PENDING
+            booking.status = Booking.STATUS_CONFIRMED
+            booking.save(update_fields=['payment_status', 'status'])
+            message = 'Booking created and confirmed for cash payment.'
+        else:
+            message = 'Booking created. Complete online payment to confirm the booking.'
+
         response_serializer = BookingSerializer(booking)
         return Response(
             {
-                "message": "Booking request submitted successfully. Your booking is pending until admin updates the status.",
-                "booking": response_serializer.data,
+                'message': message,
+                'booking': response_serializer.data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -1298,3 +1389,214 @@ class DestinationPackagesAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ---------------- PAYMENTS (Stripe Checkout) ----------------
+
+
+class PaymentInitiateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        booking_id = request.data.get('booking_id')
+        if not booking_id:
+            return Response({'error': 'booking_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+        if not _is_online_payment(booking.payment_method):
+            return Response({'error': 'This booking is not set for online payment.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        package = booking.package
+
+        stripe_secret = _get_payment_setting('STRIPE_SECRET_KEY', None)
+        if not stripe_secret:
+            return Response({'error': 'Stripe not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        stripe.api_key = stripe_secret
+
+        try:
+            amount_cents = int(round(float(package.budget) * 100))
+        except Exception:
+            return Response({'error': 'Invalid package price.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        frontend_base = _get_payment_setting('FRONTEND_URL', None) or request.build_absolute_uri('/')
+        success_url_template = _get_payment_setting(
+            'STRIPE_SUCCESS_URL',
+            f"{frontend_base}payment-success/?booking_id={booking.id}&session_id={{CHECKOUT_SESSION_ID}}"
+        )
+        success_url = success_url_template.replace('{booking_id}', str(booking.id))
+        cancel_url = _get_payment_setting('STRIPE_CANCEL_URL', f"{frontend_base}bookings/")
+
+        try:
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                mode='payment',
+                success_url=success_url,
+                cancel_url=cancel_url,
+                line_items=[{
+                    'price_data': {
+                        'currency': _get_payment_setting('STRIPE_CURRENCY', 'npr'),
+                        'product_data': {'name': package.name},
+                        'unit_amount': amount_cents,
+                    },
+                    'quantity': 1,
+                }],
+                customer_email=booking.email,
+                metadata={'booking_id': str(booking.id), 'package_id': str(package.id)},
+            )
+        except stripe.error.StripeError as e:
+            return Response({'error': 'Stripe API error', 'details': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception as e:
+            return Response({'error': 'Failed to create Stripe session', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        booking.stripe_checkout_session_id = session.id
+        booking.save(update_fields=['stripe_checkout_session_id'])
+
+        return Response({'checkout_url': session.url, 'session_id': session.id}, status=status.HTTP_200_OK)
+
+
+class PaymentVerifyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        session_id = request.data.get('session_id') or request.data.get('checkout_session_id')
+        if not session_id:
+            return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        stripe_secret = _get_payment_setting('STRIPE_SECRET_KEY', None)
+        if not stripe_secret:
+            return Response({'error': 'Stripe not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        stripe.api_key = stripe_secret
+
+        try:
+            session = stripe.checkout.Session.retrieve(session_id, expand=['payment_intent'])
+        except stripe.error.InvalidRequestError:
+            return Response({'error': 'Invalid session id.'}, status=status.HTTP_400_BAD_REQUEST)
+        except stripe.error.StripeError as e:
+            return Response({'error': 'Stripe API error', 'details': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        booking_id = None
+        try:
+            booking_id = int(session.metadata.get('booking_id')) if session.metadata and session.metadata.get('booking_id') else None
+        except Exception:
+            booking_id = None
+
+        if not booking_id:
+            try:
+                booking_id = int(request.data.get('booking_id')) if request.data.get('booking_id') else None
+            except Exception:
+                booking_id = None
+
+        if not booking_id and request.query_params.get('booking_id'):
+            try:
+                booking_id = int(request.query_params.get('booking_id'))
+            except Exception:
+                booking_id = None
+
+        booking = None
+        if booking_id:
+            booking = Booking.objects.filter(id=booking_id, user=request.user).first()
+
+        if booking is None:
+            booking = Booking.objects.filter(stripe_checkout_session_id=session.id, user=request.user).first()
+
+        if booking is None and getattr(session, 'payment_intent', None):
+            intent_id = None
+            if isinstance(session.payment_intent, dict):
+                intent_id = session.payment_intent.get('id')
+            elif isinstance(session.payment_intent, str):
+                intent_id = session.payment_intent
+            if intent_id:
+                booking = Booking.objects.filter(stripe_payment_intent_id=intent_id, user=request.user).first()
+
+        if booking is None:
+            return Response({'error': 'No booking_id in session metadata or request body, and no booking matched the Stripe session.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not _is_online_payment(booking.payment_method):
+            return Response({'error': 'Booking is not configured for online payments.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment_intent = session.payment_intent
+        intent_obj = None
+        try:
+            if isinstance(payment_intent, dict) or hasattr(payment_intent, 'get'):
+                intent_obj = payment_intent
+            else:
+                intent_obj = stripe.PaymentIntent.retrieve(payment_intent)
+        except Exception:
+            intent_obj = None
+
+        paid = False
+        amount_received = None
+        intent_id = None
+        if isinstance(payment_intent, dict):
+            intent_id = payment_intent.get('id')
+        elif hasattr(payment_intent, 'id'):
+            intent_id = getattr(payment_intent, 'id')
+        elif isinstance(payment_intent, str):
+            intent_id = payment_intent
+
+        if intent_obj:
+            status_pi = intent_obj.get('status') if isinstance(intent_obj, dict) else getattr(intent_obj, 'status', None)
+            amount_received = intent_obj.get('amount_received') if isinstance(intent_obj, dict) else getattr(intent_obj, 'amount_received', None)
+            if status_pi in {'succeeded', 'paid'}:
+                paid = True
+
+            if intent_id is None:
+                intent_id = intent_obj.get('id') if isinstance(intent_obj, dict) else getattr(intent_obj, 'id', None)
+
+        if not paid and getattr(session, 'payment_status', None) == 'paid':
+            paid = True
+
+        if not paid:
+            return Response({'error': 'Payment not completed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.payment_status = Booking.PAYMENT_PAID
+        booking.status = Booking.STATUS_CONFIRMED
+        booking.stripe_payment_intent_id = intent_id
+        booking.transaction_id = intent_id
+
+        payment_amount_cents = amount_received
+        if payment_amount_cents is None:
+            payment_amount_cents = getattr(session, 'amount_total', None) or getattr(session, 'amount_subtotal', None)
+
+        if payment_amount_cents is None:
+            try:
+                payment_amount_cents = int(round(float(booking.package.budget) * 100))
+            except Exception:
+                payment_amount_cents = None
+
+        if payment_amount_cents is not None:
+            try:
+                booking.paid_amount = int(payment_amount_cents) // 100
+            except Exception:
+                pass
+
+        booking.paid_at = timezone.now()
+        booking.save(update_fields=[
+            'payment_status',
+            'status',
+            'stripe_payment_intent_id',
+            'transaction_id',
+            'paid_amount',
+            'paid_at',
+        ])
+
+        serializer = BookingSerializer(booking)
+        return Response({'message': 'Payment verified and booking confirmed.', 'booking': serializer.data}, status=status.HTTP_200_OK)
+
+
+class PaymentStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id, user=request.user)
+        return Response({
+            'booking_id': booking.id,
+            'payment_method': booking.payment_method,
+            'payment_status': booking.payment_status,
+            'booking_status': booking.status,
+            'transaction_id': booking.transaction_id,
+            'paid_amount': booking.paid_amount,
+            'paid_at': booking.paid_at,
+        }, status=status.HTTP_200_OK)

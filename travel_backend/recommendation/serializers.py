@@ -22,11 +22,17 @@ class BookingSerializer(serializers.ModelSerializer):
             'contact_no',
             'email',
             'payment_method',
+            'payment_status',
+            'stripe_checkout_session_id',
+            'stripe_payment_intent_id',
+            'transaction_id',
+            'paid_amount',
+            'paid_at',
             'status',
             'notice',
             'created_at',
         ]
-        read_only_fields = ['id', 'user', 'package_name', 'destination_name', 'status', 'created_at', 'notice']
+        read_only_fields = ['id', 'user', 'package_name', 'destination_name', 'status', 'created_at', 'notice', 'payment_status', 'stripe_checkout_session_id', 'stripe_payment_intent_id', 'transaction_id', 'paid_amount', 'paid_at']
 
     def validate_package(self, value):
         if not isinstance(value, TravelPackage):
