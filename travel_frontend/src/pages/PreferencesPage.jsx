@@ -324,7 +324,7 @@ export default function PreferencesPage() {
               placeholder="Enter your budget in NPR"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
-            <p className="mt-2 text-sm text-gray-500">Current budget: ₹{formData.budget.toLocaleString()}</p>
+            <p className="mt-2 text-sm text-gray-500">Current budget: NPR {formData.budget.toLocaleString()}</p>
           </div>
 
           {/* Duration */}

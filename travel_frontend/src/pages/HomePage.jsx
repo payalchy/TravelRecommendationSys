@@ -57,10 +57,15 @@ export default function HomePage() {
 
   const buildRecommendationPayload = ({ saveHistory = true } = {}) => {
     const payload = {
-      user_latitude: user?.latitude || 27.7172,
-      user_longitude: user?.longitude || 85.324,
       save_history: saveHistory,
     };
+
+    const userLat = Number(user?.latitude);
+    const userLon = Number(user?.longitude);
+    if (Number.isFinite(userLat) && Number.isFinite(userLon)) {
+      payload.user_latitude = userLat;
+      payload.user_longitude = userLon;
+    }
 
     if (user?.budget) payload.budget = user.budget;
 
@@ -91,7 +96,12 @@ export default function HomePage() {
   }, [user]);
 
   const getDrivingDistanceLabel = async (destination, userLat, userLon) => {
-    if (!destination?.latitude || !destination?.longitude || !userLat || !userLon) {
+    if (
+      !Number.isFinite(Number(destination?.latitude)) ||
+      !Number.isFinite(Number(destination?.longitude)) ||
+      !Number.isFinite(Number(userLat)) ||
+      !Number.isFinite(Number(userLon))
+    ) {
       return null;
     }
 
@@ -115,8 +125,11 @@ export default function HomePage() {
   const loadDrivingDistances = async (items) => {
     setDistanceLabels({});
 
-    const userLat = user?.latitude || 27.7172;
-    const userLon = user?.longitude || 85.324;
+    const userLat = Number(user?.latitude);
+    const userLon = Number(user?.longitude);
+    if (!Number.isFinite(userLat) || !Number.isFinite(userLon)) {
+      return;
+    }
 
     const results = await Promise.all(
       items.map(async (destination) => {
@@ -504,20 +517,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (destination.latitude && destination.longitude) {
-                          window.open(
-                            `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`,
-                            '_blank'
-                          );
-                        }
-                      }}
-                      className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition"
-                    >
-                      View in Map
-                    </button>
+                    
 
                     <button
                       type="button"
@@ -596,20 +596,7 @@ export default function HomePage() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (destination.latitude && destination.longitude) {
-                                window.open(
-                                  `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`,
-                                  '_blank'
-                                );
-                              }
-                            }}
-                            className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition"
-                          >
-                            View in Map
-                          </button>
+                          
                         </div>
 
                         <div className="border-t border-gray-100 px-5 py-4">

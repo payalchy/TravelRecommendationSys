@@ -53,7 +53,7 @@ def _safe_float(value, default=None):
 
 
 def _coerce_request_location(request):
-    payload = request.data if isinstance(request.data, dict) else {}
+    payload = request.data
 
     latitude = _safe_float(payload.get("user_latitude"))
     longitude = _safe_float(payload.get("user_longitude"))
