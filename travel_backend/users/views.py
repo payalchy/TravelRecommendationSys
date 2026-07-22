@@ -107,7 +107,7 @@ class UserProfileHistoryView(generics.ListAPIView):
 
 
 # =========================
-# SEARCH HISTORY VIEW (NEW FIX)
+# SEARCH HISTORY VIEW 
 # =========================
 class SearchHistoryListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]

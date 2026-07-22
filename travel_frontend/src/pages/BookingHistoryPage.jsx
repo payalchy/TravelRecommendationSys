@@ -103,9 +103,11 @@ export default function BookingHistoryPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
-                  {booking.notice}
-                </div>
+                {booking.notice && booking.notice !== 'You will receive a call for booking confirmation.' && (
+                  <div className="mt-4 rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+                    {booking.notice}
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -8,6 +8,11 @@ export default function PackageDetail() {
   const [pkg, setPkg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState({});
+  const [rating, setRating] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingError, setRatingError] = useState("");
+  const [ratingSuccess, setRatingSuccess] = useState("");
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   const normalizePointList = (value) => {
     if (Array.isArray(value)) {
@@ -38,6 +43,40 @@ export default function PackageDetail() {
 
     fetchPackage();
   }, [id]);
+
+  const submitRating = async () => {
+    if (!rating || rating < 1 || rating > 5) {
+      setRatingError("Please select a rating between 1 and 5.");
+      return;
+    }
+
+    setRatingSubmitting(true);
+    setRatingError("");
+    setRatingSuccess("");
+
+    try {
+      const response = await recommendationAPI.ratePackage(pkg.package_id || id, {
+        score: rating,
+      });
+
+      setPkg((prevPkg) =>
+        prevPkg
+          ? {
+              ...prevPkg,
+              average_rating: response.data.average_rating,
+              rating_count: response.data.rating_count,
+            }
+          : prevPkg
+      );
+      setRatingSuccess("Thank you for your feedback!");
+      setRatingSubmitted(true);
+    } catch (err) {
+      setRatingError(err.response?.data?.error || "Failed to submit rating.");
+      console.error("Rating submission error:", err);
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
 
   const toggleDay = (dayNum) => {
     setExpandedDays((prev) => ({
@@ -110,13 +149,47 @@ export default function PackageDetail() {
           <p style={styles.duration}>{pkg.days} Days</p>
           <p style={styles.price}>Price: NPR {Number(pkg.budget || 0).toLocaleString()} / 1 Pax</p>
           <p style={styles.duration}>Travelers: {pkg.number_of_travelers || 'N/A'}</p>
+          <p style={styles.duration}>
+            Rating: {Number(pkg.average_rating || 0).toFixed(1)} / 5 ({pkg.rating_count || 0} reviews)
+          </p>
           <p style={styles.description}>{pkg.description}</p>
 
-          <button
-            onClick={() => navigate(`/booking/${pkg.package_id || id}`)}
-            style={styles.bookingButton}
-          >
-            Booking
+          {!ratingSubmitted && (
+            <div style={styles.ratingForm}>
+              <label htmlFor="rating" style={styles.ratingLabel}>
+                Rate this package:
+              </label>
+              <select
+                id="rating"
+                value={rating}
+                onChange={(e) => setRating(Number(e.target.value))}
+                style={styles.ratingSelect}
+              >
+                <option value={0}>Select rating</option>
+                <option value={1}>1 - Poor</option>
+                <option value={2}>2 - Fair</option>
+                <option value={3}>3 - Good</option>
+                <option value={4}>4 - Very Good</option>
+                <option value={5}>5 - Excellent</option>
+              </select>
+              <button
+                onClick={submitRating}
+                style={styles.ratingButton}
+                disabled={ratingSubmitting}
+              >
+                {ratingSubmitting ? "Submitting..." : "Submit Rating"}
+              </button>
+              {ratingError && <p style={styles.errorText}>{ratingError}</p>}
+              {ratingSuccess && <p style={styles.successText}>{ratingSuccess}</p>}
+            </div>
+          )}
+
+          {ratingSubmitted && (
+            <p style={styles.successText}>Thank you for your feedback</p>
+          )}
+
+          <button style={styles.bookingButton} onClick={() => navigate(`/booking/${pkg.package_id || id}`)}>
+            Book Now
           </button>
 
         </div>
@@ -152,7 +225,7 @@ export default function PackageDetail() {
 
           {/* TIMELINE */}
           <div style={styles.timeline}>
-            <h3 style={styles.timelineTitle}>📍 Detailed Itinerary</h3>
+            <h3 style={styles.timelineTitle}> Detailed Itinerary</h3>
 
             {pkg.itinerary?.length > 0 ? (
               pkg.itinerary.map((day, index) => (
@@ -296,6 +369,56 @@ const styles = {
     fontSize: "14px",
     lineHeight: "1.75",
     color: "#475569",
+  },
+
+  ratingForm: {
+    display: "grid",
+    gap: "10px",
+    marginTop: "18px",
+    padding: "16px",
+    background: "#f8fafc",
+    border: "1px solid #cbd5e1",
+    borderRadius: "12px",
+  },
+
+  ratingLabel: {
+    margin: 0,
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+
+  ratingSelect: {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    fontSize: "14px",
+  },
+
+  ratingButton: {
+    width: "100%",
+    background: "#eea60a",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "10px",
+    padding: "10px 16px",
+    fontWeight: "700",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+
+  errorText: {
+    color: "#b91c1c",
+    fontSize: "13px",
+    margin: 0,
+  },
+
+  successText: {
+    color: "#15803d",
+    fontSize: "13px",
+    margin: 0,
   },
 
   bookingButton: {

@@ -119,6 +119,10 @@ export const recommendationAPI = {
   getRecommendedPackage: (packageId) =>
     api.get(`/recommend/available-packages/${packageId}/`),
 
+  // Submit a rating for a package
+  ratePackage: (packageId, data) =>
+    api.post(`/recommend/available-packages/${packageId}/rate/`, data),
+
   // Create a booking request
   createBooking: (payload) =>
     api.post('/recommend/bookings/', payload),
@@ -144,6 +148,33 @@ export const recommendationAPI = {
     api.get('/destination/geocode/', {
       params: { name },
     }),
+
+  // ---------- PAYMENTS ----------
+
+  // Initiate payment (hosted checkout) for a booking
+  initiatePayment: (bookingId) =>
+    api.post('/payments/initiate/', { booking_id: bookingId }),
+
+  // Verify payment after provider callback / success
+  // With Stripe we send `session_id`; keep legacy support for (token, bookingId)
+  verifyPayment: (arg1, arg2) => {
+    if (!arg2) {
+      // Assume arg1 is `session_id`
+      return api.post('/payments/verify/', { session_id: arg1 });
+    }
+
+    // If arg1 is a Stripe checkout session id, send session_id + booking_id
+    if (typeof arg1 === 'string' && arg1.startsWith('cs_')) {
+      return api.post('/payments/verify/', { session_id: arg1, booking_id: arg2 });
+    }
+
+    // Legacy: token + bookingId
+    return api.post('/payments/verify/', { token: arg1, booking_id: arg2 });
+  },
+
+  // Check payment status for a booking
+  getPaymentStatus: (bookingId) =>
+    api.get(`/payments/${bookingId}/status/`),
 };
 
 export default api;

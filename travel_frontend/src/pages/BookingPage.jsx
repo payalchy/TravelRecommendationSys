@@ -11,11 +11,12 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [bookingId, setBookingId] = useState(null);
   const [formData, setFormData] = useState({
     full_name: '',
     contact_no: '',
     email: '',
-    payment_method: 'On Arrival',
+    payment_method: 'Cash',
   });
 
   useEffect(() => {
@@ -61,13 +62,18 @@ export default function BookingPage() {
         ...formData,
       });
 
-      setSuccess(response.data?.message || 'Booking request submitted successfully.');
-      setFormData({
-        full_name: '',
-        contact_no: '',
-        email: '',
-        payment_method: 'On Arrival',
-      });
+      setBookingId(response.data?.booking?.id);
+
+      if (formData.payment_method === 'Online Payment') {
+        // Initiate online payment (hosted checkout)
+        initiateKhaltiPayment(response.data?.booking?.id);
+      } else {
+        // On Arrival - just confirm
+        setSuccess('Booking request submitted successfully. You will be called for confirmation.');
+        setTimeout(() => {
+          navigate('/home');
+        }, 2000);
+      }
     } catch (err) {
       const apiErrors = err.response?.data;
       const message = apiErrors?.error ||
@@ -77,6 +83,65 @@ export default function BookingPage() {
       setError(String(message));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const initiateKhaltiPayment = async (newBookingId) => {
+    try {
+      setSubmitting(true);
+      const response = await recommendationAPI.initiatePayment(newBookingId);
+      const paymentData = response.data;
+
+      console.log('Payment data received:', paymentData);
+
+      // Backend will return a hosted payment URL (Stripe Checkout) — redirect the browser there
+      if (paymentData.checkout_url) {
+        window.location.href = paymentData.checkout_url;
+        return;
+      }
+
+      // Backwards compatibility: some responses may include `session_url` or `url`
+      if (paymentData.session_url) {
+        window.location.href = paymentData.session_url;
+        return;
+      }
+
+      if (paymentData.url) {
+        window.location.href = paymentData.url;
+        return;
+      }
+
+      // If still no URL, show the provider response for debugging
+      console.error('No redirect URL returned from server:', paymentData);
+      setError('Failed to start payment: no redirect URL returned by server.');
+      setSubmitting(false);
+    } catch (err) {
+      console.error('Payment initiation error:', err);
+      const serverData = err.response?.data;
+      const serverMsg = serverData ? (serverData.error || JSON.stringify(serverData)) : err.message;
+      setError('Failed to initiate payment. ' + String(serverMsg));
+      setSubmitting(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (bookingIdFromPayment, payload) => {
+    try {
+      // Verify payment with backend
+      const verifyResponse = await recommendationAPI.verifyPayment(
+        payload.pidx,
+        payload.transaction_id,
+        bookingIdFromPayment,
+        'Completed'
+      );
+
+      if (verifyResponse.status === 200) {
+        setSuccess('Payment successful! Your booking is confirmed.');
+        setTimeout(() => {
+          navigate(`/payment-success/${bookingIdFromPayment}`);
+        }, 1500);
+      }
+    } catch (err) {
+      setError('Payment verification failed. Please contact support.');
     }
   };
 
@@ -146,20 +211,27 @@ export default function BookingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
-                <input type="text" value="On Arrival" readOnly className="w-full px-4 py-2 border rounded-lg bg-gray-100" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                <select
+                  name="payment_method"
+                  value={formData.payment_method}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border rounded-lg bg-white"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Online Payment">Online Payment (Card)</option>
+                </select>
               </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-4 text-sm">
-                You will get a call for booking confirmation.
-              </div>
-
-              <div className="bg-gray-100 border border-gray-200 text-gray-700 rounded-lg p-4 text-sm">
-                Your booking request will stay <strong>pending</strong> until the admin changes the booking status.
-              </div>
+                              {formData.payment_method === 'Online Payment' && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-sm text-orange-800">
+                  <strong>Online Payment (Card)</strong>
+                  <p className="mt-2 text-xs">You will be redirected to a secure checkout. Payment amount: <strong>NPR {Number(pkg.budget || 0).toLocaleString()}</strong></p>
+                </div>
+              )}
 
               <button type="submit" disabled={submitting} className="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                {submitting ? 'Submitting...' : 'Submit Booking Request'}
+                {submitting ? 'Processing...' : formData.payment_method === 'Online Payment' ? 'Continue to Payment' : 'Submit Booking Request'}
               </button>
             </form>
           </div>

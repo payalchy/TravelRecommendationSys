@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting to Stripe Checkout</title>
+</head>
+<body>
+  <div style="max-width:700px;margin:48px auto;font-family:Arial,Helvetica,sans-serif">
+    <h1>Proceed to payment</h1>
+    <p id="message">Preparing Stripe Checkout...</p>
+    <p>If you are not redirected automatically, click the button below.</p>
+    <a id="checkout-btn" href="#" style="display:inline-block;padding:12px 20px;background:#5469d4;color:#fff;text-decoration:none;border-radius:6px">Go to Checkout</a>
+  </div>
+
+  <script>
+    // Expect ?checkout_url=... or ?session_id=...
+    const params = new URLSearchParams(window.location.search);
+    const checkoutUrl = params.get('checkout_url') || params.get('url');
+    const btn = document.getElementById('checkout-btn');
+    const msg = document.getElementById('message');
+
+    if (checkoutUrl) {
+      btn.href = checkoutUrl;
+      msg.textContent = 'Redirecting to Stripe Checkout...';
+      // small delay so user sees the message
+      setTimeout(() => { window.location.href = checkoutUrl; }, 900);
+    } else {
+      msg.textContent = 'No checkout URL provided.';
+      btn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

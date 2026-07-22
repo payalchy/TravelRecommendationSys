@@ -167,11 +167,12 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-
-# =========================
-# GOOGLE MAPS API
-# =========================
-# Set your Google Maps API key here or as an environment variable
-# Get your API key from: https://developers.google.com/maps/documentation/geocoding/get-api-key
-# Set it in environment variable GOOGLE_MAPS_API_KEY or directly below
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+
+# Stripe Payment Gateway Configuration - read from environment
+STRIPE_PUBLIC_KEY = os.getenv("STRIPE_PUBLIC_KEY")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL")
+STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL")
+STRIPE_CURRENCY = os.getenv("STRIPE_CURRENCY", "npr")
+FRONTEND_URL = os.getenv("FRONTEND_URL")

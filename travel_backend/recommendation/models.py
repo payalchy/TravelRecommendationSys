@@ -7,7 +7,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.db.models.functions import Lower
-from django.db.models import Max
+from django.db.models import Max, Avg, Count
 from django.conf import settings
 import googlemaps
 
@@ -198,6 +198,8 @@ class TravelPackage(models.Model):
     budget = models.FloatField(validators=[MinValueValidator(0)])
     distance_km = models.FloatField(validators=[MinValueValidator(0)], default=0)
     number_of_travelers = models.IntegerField(validators=[MinValueValidator(1)],default=1)
+    average_rating = models.FloatField(default=0.0)
+    rating_count = models.PositiveIntegerField(default=0)
     image = models.ImageField(upload_to='packages/', validators=[validate_image],null=True, blank=True)
     description = models.TextField(default="")
     days = models.IntegerField(validators=[MinValueValidator(1)],default=1)
@@ -285,8 +287,50 @@ class TravelPackage(models.Model):
             self.distance_km = 0.0
         super().save(*args, **kwargs)
 
+    def update_rating_stats(self):
+        stats = self.ratings.aggregate(
+            average=models.Avg("score"),
+            count=models.Count("id"),
+        )
+        self.average_rating = stats["average"] or 0.0
+        self.rating_count = stats["count"] or 0
+        self.save(update_fields=["average_rating", "rating_count"])
+
     def __str__(self):
         return self.name
+
+class PackageRating(models.Model):
+    package = models.ForeignKey(
+        TravelPackage,
+        related_name="ratings",
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="package_ratings",
+        on_delete=models.CASCADE,
+    )
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("package", "user")
+        indexes = [models.Index(fields=["package", "user"])]
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.package.update_rating_stats()
+
+    def delete(self, *args, **kwargs):
+        package = self.package
+        super().delete(*args, **kwargs)
+        package.update_rating_stats()
+
+    def __str__(self):
+        return f"{self.user.username} rating for {self.package.name}: {self.score}"
 
 class PackageItinerary(models.Model):
     package = models.ForeignKey(TravelPackage,on_delete=models.CASCADE,related_name='itinerary')
@@ -318,32 +362,122 @@ class PackageItinerary(models.Model):
 
 
 class Booking(models.Model):
-    STATUS_PENDING = 'pending'
-    STATUS_CONFIRMED = 'confirmed'
-    STATUS_NOT_AVAILABLE = 'not_available'
+
+    STATUS_PENDING = "pending"
+    STATUS_CONFIRMED = "confirmed"
+    STATUS_NOT_AVAILABLE = "not_available"
 
     STATUS_CHOICES = [
-        (STATUS_PENDING, 'Pending'),
-        (STATUS_CONFIRMED, 'Confirmed'),
-        (STATUS_NOT_AVAILABLE, 'Not Available'),
+        (STATUS_PENDING, "Pending"),
+        (STATUS_CONFIRMED, "Confirmed"),
+        (STATUS_NOT_AVAILABLE, "Not Available"),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bookings', null=True, blank=True,)
-    package = models.ForeignKey(TravelPackage, on_delete=models.CASCADE, related_name='bookings')
+
+    PAYMENT_PENDING = "pending"
+    PAYMENT_PAID = "paid"
+    PAYMENT_FAILED = "failed"
+    PAYMENT_REFUNDED = "refunded"
+
+
+    PAYMENT_STATUS_CHOICES = [
+        (PAYMENT_PENDING, "Pending"),
+        (PAYMENT_PAID, "Paid"),
+        (PAYMENT_FAILED, "Failed"),
+        (PAYMENT_REFUNDED, "Refunded"),
+    ]
+
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='bookings',
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        TravelPackage,
+        on_delete=models.CASCADE,
+        related_name='bookings'
+    )
+
     full_name = models.CharField(max_length=255)
+
     contact_no = models.CharField(max_length=50)
+
     email = models.EmailField()
-    payment_method = models.CharField(max_length=50, default='On Arrival')
-    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default=STATUS_PENDING)
-    notice = models.TextField(default='You will receive a call for booking confirmation.')
-    created_at = models.DateTimeField(auto_now_add=True)
+
+
+    payment_method = models.CharField(
+        max_length=50,
+        default="Cash"
+    )
+
+
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default=PAYMENT_PENDING
+    )
+
+
+    # Stripe fields
+    stripe_checkout_session_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+
+    stripe_payment_intent_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
+
+    transaction_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True
+    )
+
+
+    paid_amount = models.PositiveIntegerField(
+        default=0
+    )
+
+
+    paid_at = models.DateTimeField(
+        blank=True,
+        null=True
+    )
+
+
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING
+    )
+
+
+    notice = models.TextField(
+        default="You will receive a call for booking confirmation."
+    )
+
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
 
     class Meta:
         ordering = ['-created_at']
 
-    def __str__(self):
-        return f"{self.full_name} - {self.package.name} - {self.status}"
 
+    def __str__(self):
+        return f"{self.full_name} - {self.package.name}"
 
 class Recommendation(models.Model):
     """

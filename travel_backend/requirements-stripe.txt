@@ -1,0 +1,2 @@
+# Add Stripe to your environment's Python dependencies
+stripe==15.3.1
