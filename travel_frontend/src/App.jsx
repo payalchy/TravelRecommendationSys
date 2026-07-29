@@ -15,6 +15,7 @@ import PackageDetail from './pages/PackageDetail';
 import BookingPage from './pages/BookingPage';
 import BookingHistoryPage from './pages/BookingHistoryPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import LandingPage from './pages/LandingPage';
 
 function App() {
   return (
@@ -23,6 +24,8 @@ function App() {
         <div className="min-h-screen bg-gray-50">
           <Routes>
             {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 
@@ -98,11 +101,8 @@ function App() {
               }
             />
 
-            {/* Redirect root to login or home */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/home" replace />} />
+            {/* Catch all - redirect to landing page */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </AuthProvider>

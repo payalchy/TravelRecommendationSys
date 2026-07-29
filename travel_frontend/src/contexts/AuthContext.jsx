@@ -91,6 +91,10 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setHasRecommendationHistory(false);
+
+    if (typeof window !== 'undefined') {
+      window.location.assign('/');
+    }
   };
 
   const isAuthenticated = !!token && !!user;
