@@ -12,7 +12,9 @@ export default function AboutPage() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="absolute inset-x-0 top-0 z-20 mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
         <div>
-          <p className="text-base font-semibold text-white">Travel Recommendation System</p>
+          <p className="text-lg font-extrabold uppercase tracking-[0.3em] text-blue-200 drop-shadow-lg sm:text-2xl lg:text-3xl">
+            Travel Recommendation System
+          </p>
         </div>
         <nav className="hidden items-center gap-8 text-sm font-medium text-white md:flex">
           <Link to="/" className="transition hover:text-blue-200">Home</Link>
