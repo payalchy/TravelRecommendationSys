@@ -161,16 +161,13 @@ export default function PaymentSuccessPage() {
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
                   <h2 className="text-xl font-bold text-gray-900 mb-3">What's Next?</h2>
                   <ul className="space-y-2 text-sm text-gray-700">
+                  
                     <li className="flex items-start">
                       <span className="text-amber-600 font-bold mr-3">1.</span>
-                      <span>Check your email for the booking confirmation details</span>
-                    </li>
-                    <li className="flex items-start">
-                      <span className="text-amber-600 font-bold mr-3">2.</span>
                       <span>Your booking has been confirmed and payment is complete.</span>
                     </li>
                     <li className="flex items-start">
-                      <span className="text-amber-600 font-bold mr-3">3.</span>
+                      <span className="text-amber-600 font-bold mr-3">2.</span>
                       <span>View your booking in "My Bookings" to track the status</span>
                     </li>
                   </ul>
@@ -200,8 +197,8 @@ export default function PaymentSuccessPage() {
         <div className="mt-8 bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Need Help?</h3>
           <p className="text-gray-600 mb-2">If you have any questions about your booking, please contact us:</p>
-          <p className="text-gray-700 font-semibold">📞 +977-1-XXXXXXXX</p>
-          <p className="text-gray-700 font-semibold">📧 support@smarttravel.com</p>
+          <p className="text-gray-700 font-semibold"> +977-9876543213</p>
+          <p className="text-gray-700 font-semibold"> support@smarttravel.com</p>
         </div>
       </div>
     </div>

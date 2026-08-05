@@ -17,9 +17,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1']
 
 
-# =========================
 # APPLICATIONS
-# =========================
+
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -50,9 +49,9 @@ JAZZMIN_SETTINGS = {
     "custom_css": "admin/css/custom_admin.css",
 }
 
-# =========================
+
 # MIDDLEWARE
-# =========================
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 
@@ -71,9 +70,9 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'config.urls'
 
 
-# =========================
+
 # TEMPLATES
-# =========================
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -93,9 +92,8 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# =========================
 # DATABASE
-# =========================
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -108,9 +106,8 @@ DATABASES = {
 }
 
 
-# =========================
 # PASSWORD VALIDATION
-# =========================
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -119,18 +116,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# =========================
 # INTERNATIONALIZATION
-# =========================
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Kathmandu'
 USE_I18N = True
 USE_TZ = True
 
 
-# =========================
+
 # STATIC / MEDIA
-# =========================
+
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / "static"]
 

@@ -4,9 +4,8 @@ from rest_framework.validators import UniqueValidator
 from .models import UserProfile, TravelStyle, SearchHistory
 
 
-# =========================
 # REGISTER SERIALIZER
-# =========================
+
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
@@ -34,19 +33,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         UserProfile.objects.create(user=user)
         return user
 
-
-# =========================
 # TRAVEL STYLE SERIALIZER 
-# =========================
+
 class TravelStyleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TravelStyle
         fields = ['id', 'name']
 
 
-# =========================
+
 # USER PROFILE SERIALIZER
-# =========================
+
 class UserProfileSerializer(serializers.ModelSerializer):
 
     username = serializers.CharField(source='user.username', read_only=True)

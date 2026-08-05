@@ -49,7 +49,7 @@ class Destination(models.Model):
 
     image = models.URLField(blank=True, null=True)
     
-    # NEW: Constraint fields for recommendations
+    # Constraint fields for recommendations
     avg_package_price = models.FloatField(
         null=True, blank=True,
         validators=[MinValueValidator(0)],

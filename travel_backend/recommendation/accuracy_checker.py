@@ -34,7 +34,7 @@ class AccuracyMetrics:
             'recommendation_quality': []
         }
 
-    # ==================== PRECISION & RECALL ====================
+    #  PRECISION & RECALL 
     
     @staticmethod
     def calculate_precision_at_k(recommendations, relevant_items, k=5):
@@ -155,20 +155,7 @@ class AccuracyMetrics:
     
     @staticmethod
     def calculate_mrr(recommendations, relevant_items):
-        """
-        Mean Reciprocal Rank: Position of first relevant item (inverse)
-        
-        Formula: MRR = 1 / rank_of_first_relevant_item
-        
-        Useful for: Measuring how quickly the system finds the first good match
-        
-        Args:
-            recommendations: List of recommended item IDs
-            relevant_items: Set of relevant item IDs
-        
-        Returns:
-            float: MRR score [0, 1]
-        """
+       
         for rank, item_id in enumerate(recommendations, start=1):
             if item_id in relevant_items:
                 return 1.0 / rank
@@ -207,12 +194,6 @@ class AccuracyMetrics:
         
         Measures: Whether recommendations are similar or diverse
         
-        Args:
-            recommendations: List of recommended item IDs
-            attributes_map: Dict mapping item_id -> set of attributes
-        
-        Returns:
-            float: Diversity score [0, 1]
         """
         if not recommendations:
             return 0.0
@@ -226,7 +207,7 @@ class AccuracyMetrics:
         
         return len(unique_attributes) / max_possible_attributes if max_possible_attributes > 0 else 0.0
 
-    # ==================== RECOMMENDATION QUALITY ====================
+    #  RECOMMENDATION QUALITY 
     
     @staticmethod
     def calculate_budget_fitness(recommendations, user_budget, budget_map):
@@ -234,11 +215,6 @@ class AccuracyMetrics:
         Budget Fitness: How well recommendations match user budget constraints
         
         Formula: Fitness = Avg(|user_budget - package_cost| / user_budget)
-        
-        Args:
-            recommendations: List of recommended package IDs
-            user_budget: User's budget
-            budget_map: Dict mapping package_id -> package_budget
         
         Returns:
             float: Fitness score [0, 1] (1 = perfect match, 0 = worst)

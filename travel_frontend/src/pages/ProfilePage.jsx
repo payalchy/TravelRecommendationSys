@@ -112,7 +112,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-1 text-right">
                       <p className="text-sm text-gray-500">Budget</p>
-                      <p className="text-sm font-medium text-gray-900">{entry.search_payload?.budget ? `₹${Number(entry.search_payload.budget).toLocaleString()}` : 'Any'}</p>
+                      <p className="text-sm font-medium text-gray-900">{entry.search_payload?.budget ? `NPR ${Number(entry.search_payload.budget).toLocaleString()}` : 'Any'}</p>
                       <p className="text-sm text-gray-500">Duration</p>
                       <p className="text-sm font-medium text-gray-900">{entry.search_payload?.duration || 'Any'} days</p>
                       <p className="text-sm text-gray-500">Season</p>

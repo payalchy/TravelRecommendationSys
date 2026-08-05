@@ -16,6 +16,7 @@ import BookingPage from './pages/BookingPage';
 import BookingHistoryPage from './pages/BookingHistoryPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import LandingPage from './pages/LandingPage';
+import AboutPage from './pages/AboutPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/landing" element={<LandingPage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
 

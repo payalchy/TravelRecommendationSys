@@ -17,9 +17,9 @@ from .serializers import (
 )
 
 
-# =========================
+
 # REGISTER VIEW
-# =========================
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -36,9 +36,8 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# =========================
 # USER PROFILE VIEW
-# =========================
+
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -73,18 +72,16 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         }, status=status.HTTP_200_OK)
 
 
-# =========================
+
 # TRAVEL STYLE LIST
-# =========================
 class TravelStyleListView(generics.ListAPIView):
     queryset = TravelStyle.objects.all()
     serializer_class = TravelStyleSerializer
     permission_classes = [permissions.AllowAny]
 
 
-# =========================
 # PROFILE HISTORY VIEW
-# =========================
+
 class UserProfileHistoryView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -106,9 +103,8 @@ class UserProfileHistoryView(generics.ListAPIView):
         ], status=status.HTTP_200_OK)
 
 
-# =========================
 # SEARCH HISTORY VIEW 
-# =========================
+
 class SearchHistoryListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 

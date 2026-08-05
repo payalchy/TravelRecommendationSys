@@ -350,7 +350,7 @@ export default function HomePage() {
               onChange={(e) =>
                 handleDestinationSearch(e.target.value)
               }
-              placeholder="Search by destination name, province, or tag"
+              placeholder="Search by destination name, province"
               className="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 

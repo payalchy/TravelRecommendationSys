@@ -1,8 +1,6 @@
 """
-Travel Recommendation Engine - Multi-Algorithm Approach (UPDATED)
+Travel Recommendation Engine - Multi-Algorithm Approach 
 
-KEY UPDATE:
-- distance2 is now based on ITINERARY distance instead of geo distance
 """
 
 import math
@@ -11,9 +9,9 @@ from dataclasses import dataclass
 EPSILON = 1e-9
 
 
-# =========================
+
 # DATA CLASSES
-# =========================
+
 
 @dataclass
 class ScoredPackage:
@@ -36,9 +34,8 @@ class ScoredDestination:
     final_score: float
 
 
-# =========================
+
 # SAFE HELPERS
-# =========================
 
 def _safe_positive(value, default=0.0):
     try:
@@ -62,9 +59,9 @@ def _normalize_weights(weights):
     return {k: float(v) / total for k, v in weights.items()}
 
 
-# =========================
-# ITINERARY DISTANCE (distance2 FIX)
-# =========================
+
+# ITINERARY DISTANCE (distance2 )
+
 
 def _itinerary_distance_km(package):
     """
@@ -72,7 +69,7 @@ def _itinerary_distance_km(package):
     Uses itinerary-based travel distance instead of geo distance.
     """
 
-    # 1. Direct stored itinerary distance (BEST)
+    # 1. Direct storeing of itinerary distance 
     if hasattr(package, "itinerary_total_distance_km") and package.itinerary_total_distance_km:
         return _safe_positive(package.itinerary_total_distance_km)
 
@@ -86,13 +83,13 @@ def _itinerary_distance_km(package):
         except:
             pass
 
-    # 3. fallback
+    # 3. fallback / Instead of crashing returns default value
     return 50.0
 
 
-# =========================
+
 # SIMILARITY
-# =========================
+
 
 def _preference_similarity(user_value, item_value):
     u = _safe_positive(user_value)
@@ -111,9 +108,9 @@ def _travel_type_similarity(user_type, package_type):
     return 1.0 if any(ut in package_type for ut in user_types) else 0.2
 
 
-# =========================
+
 # PACKAGE SCORING
-# =========================
+
 
 def compute_cps(user_context, package, weights, distance2):
     """
@@ -143,9 +140,8 @@ def compute_weighted_distance(user_context, package, weights, distance2):
     )
 
 
-# =========================
 # COST & TIME EFFICIENCY (UPDATED CORE FIX)
-# =========================
+
 
 def compute_efficiencies(package, distance, distance2):
     """
@@ -165,9 +161,8 @@ def compute_efficiencies(package, distance, distance2):
     return cost_efficiency, time_efficiency
 
 
-# =========================
-# PACKAGE RECOMMENDATION
-# =========================
+# PACKAGE RECOMMENDATION / Main Recommendation Function
+
 
 def recommend_packages(user_context, packages, k=5, top_n=5):
 
@@ -190,7 +185,7 @@ def recommend_packages(user_context, packages, k=5, top_n=5):
 
     for package in packages:
 
-        # distance2 = itinerary distance (CORE CHANGE)
+        # distance2 = itinerary distance 
         distance2 = _itinerary_distance_km(package)
 
         cps = compute_cps(user_context, package, preference_weights, distance2)
@@ -224,9 +219,9 @@ def recommend_packages(user_context, packages, k=5, top_n=5):
     return results[:max(1, top_n)]
 
 
-# =========================
-# DESTINATION SCORING (UPDATED distance2)
-# =========================
+
+# DESTINATION SCORING 
+
 
 def _destination_distance2(destination):
     """

@@ -12,10 +12,10 @@ const api = axios.create({
   },
 });
 
-// ===============================
+
 // REQUEST INTERCEPTOR
 // Add JWT token automatically
-// ===============================
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -29,10 +29,10 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ===============================
+
 // RESPONSE INTERCEPTOR
 // Handle unauthorized responses
-// ===============================
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -47,9 +47,9 @@ api.interceptors.response.use(
   }
 );
 
-// ===============================
+
 // AUTHENTICATION API
-// ===============================
+
 export const authAPI = {
   // Register user
   register: (data) =>
@@ -68,9 +68,9 @@ export const authAPI = {
   },
 };
 
-// ===============================
+
 // RECOMMENDATION API
-// ===============================
+
 export const recommendationAPI = {
   // ---------- USER PROFILE ----------
 
