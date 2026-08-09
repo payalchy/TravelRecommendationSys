@@ -66,7 +66,6 @@ export default function AboutPage() {
             <div className="grid gap-10 xl:grid-cols-[1.1fr_0.9fr] xl:items-stretch">
               <div className="space-y-8">
                 <div className="max-w-3xl">
-                  <p className="text-sm uppercase tracking-[0.3em] font-semibold text-blue-700">About the project</p>
                   <h2 className="mt-4 text-3xl font-semibold text-slate-900 sm:text-4xl">Personalized Travel Recommendation System</h2>
                   <p className="mt-4 text-base leading-8 text-slate-600 sm:text-lg">
                    Our Personalized Travel Recommendation System helps you discover the best destinations and travel packages across Nepal based on your budget, travel duration, preferred season, travel style, location, and personal preferences.

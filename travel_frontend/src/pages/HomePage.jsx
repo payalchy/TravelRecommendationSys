@@ -1,21 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
+  const RECOMMENDATIONS_PAGE_SIZE = 5;
+  const PACKAGES_PAGE_SIZE = 6;
+  const SUGGESTIONS_PAGE_SIZE = 6;
 
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreDestinations, setLoadingMoreDestinations] = useState(false);
   const [error, setError] = useState('');
+  const [recommendationBatchKey, setRecommendationBatchKey] = useState('');
+  const [recommendationOffset, setRecommendationOffset] = useState(0);
+  const [hasMoreRecommendations, setHasMoreRecommendations] = useState(false);
   const [suggestedDestinations, setSuggestedDestinations] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [suggestionsLoadingMore, setSuggestionsLoadingMore] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState('');
+  const [suggestionsOffset, setSuggestionsOffset] = useState(0);
+  const [hasMoreSuggestions, setHasMoreSuggestions] = useState(false);
   const [recommendedPackages, setRecommendedPackages] = useState([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
+  const [packagesLoadingMore, setPackagesLoadingMore] = useState(false);
   const [packagesError, setPackagesError] = useState('');
+  const [packageBatchKey, setPackageBatchKey] = useState('');
+  const [packageOffset, setPackageOffset] = useState(0);
+  const [hasMorePackages, setHasMorePackages] = useState(false);
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,6 +69,7 @@ export default function HomePage() {
   };
 
   const getStoredProvinceList = () => normalizeProvinceList(localStorage.getItem('preferred_provinces'));
+  const initialRecommendationState = location.state?.initialRecommendations;
 
   const buildRecommendationPayload = ({ saveHistory = true } = {}) => {
     const payload = {
@@ -89,7 +105,20 @@ export default function HomePage() {
 
   useEffect(() => {
     if (user) {
-      fetchRecommendations({ saveHistory: false });
+      if (initialRecommendationState?.destination_results) {
+        const initialDestinations = initialRecommendationState.destination_results || [];
+        setDestinations(initialDestinations);
+        setRecommendationBatchKey(initialRecommendationState.batch_key || '');
+        setRecommendationOffset(initialRecommendationState.next_offset ?? initialDestinations.length);
+        setHasMoreRecommendations(Boolean(initialRecommendationState.has_more));
+        if (initialDestinations.length > 0) {
+          loadDrivingDistances(initialDestinations, false);
+        }
+        setLoading(false);
+      } else {
+        fetchRecommendations({ saveHistory: false });
+      }
+
       fetchRecommendedPackages();
       fetchSearchHistory();
     }
@@ -122,8 +151,10 @@ export default function HomePage() {
     return null;
   };
 
-  const loadDrivingDistances = async (items) => {
-    setDistanceLabels({});
+  const loadDrivingDistances = async (items, append = false) => {
+    if (!append) {
+      setDistanceLabels({});
+    }
 
     const userLat = Number(user?.latitude);
     const userLon = Number(user?.longitude);
@@ -146,20 +177,38 @@ export default function HomePage() {
       }
     });
 
-    setDistanceLabels(nextDistances);
+    setDistanceLabels((prev) => (append ? { ...prev, ...nextDistances } : nextDistances));
   };
 
-  const fetchRecommendations = async ({ saveHistory = true } = {}) => {
+  const fetchRecommendations = async ({ saveHistory = true, append = false } = {}) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMoreDestinations(true);
+      } else {
+        setLoading(true);
+        setError('');
+      }
 
-      const response = await recommendationAPI.getRecommendations(buildRecommendationPayload({ saveHistory }));
+      const currentOffset = append ? recommendationOffset : 0;
+      const response = await recommendationAPI.getRecommendations({
+        ...buildRecommendationPayload({ saveHistory }),
+        offset: currentOffset,
+        limit: RECOMMENDATIONS_PAGE_SIZE,
+        batch_key: append ? recommendationBatchKey : undefined,
+      });
 
       const recommendations = response.data.destination_results || [];
-      setDestinations(recommendations);
+      const nextBatchKey = response.data.batch_key || recommendationBatchKey;
+      const nextOffset = response.data.next_offset ?? (currentOffset + recommendations.length);
+      const shouldAppend = append && currentOffset > 0;
+
+      setDestinations((prev) => (shouldAppend ? [...prev, ...recommendations] : recommendations));
+      setRecommendationBatchKey(nextBatchKey);
+      setRecommendationOffset(nextOffset);
+      setHasMoreRecommendations(Boolean(response.data.has_more));
 
       if (recommendations.length > 0) {
-        await loadDrivingDistances(recommendations);
+        await loadDrivingDistances(recommendations, shouldAppend);
       }
 
     } catch (err) {
@@ -173,29 +222,60 @@ export default function HomePage() {
 
     } finally {
       setLoading(false);
+      setLoadingMoreDestinations(false);
     }
   };
 
-  const fetchRecommendedPackages = async () => {
-    try {
-      setPackagesLoading(true);
-      setPackagesError('');
+  const handleLoadMoreRecommendations = () => {
+    fetchRecommendations({ saveHistory: false, append: true });
+  };
 
-      const response = await recommendationAPI.getRecommendedPackages(buildRecommendationPayload({ saveHistory: false }));
-      setRecommendedPackages(response.data.packages || []);
+  const fetchRecommendedPackages = async ({ append = false } = {}) => {
+    try {
+      if (append) {
+        setPackagesLoadingMore(true);
+      } else {
+        setPackagesLoading(true);
+        setPackagesError('');
+      }
+
+      const currentOffset = append ? packageOffset : 0;
+
+      const response = await recommendationAPI.getRecommendedPackages({
+        ...buildRecommendationPayload({ saveHistory: false }),
+        offset: currentOffset,
+        limit: PACKAGES_PAGE_SIZE,
+        batch_key: append ? packageBatchKey : undefined,
+      });
+
+      const nextPackages = response.data.packages || [];
+      const nextBatchKey = response.data.batch_key || packageBatchKey;
+      const nextOffset = response.data.next_offset ?? (currentOffset + nextPackages.length);
+      const shouldAppend = append && currentOffset > 0;
+
+      setRecommendedPackages((prev) => (shouldAppend ? [...prev, ...nextPackages] : nextPackages));
+      setPackageBatchKey(nextBatchKey);
+      setPackageOffset(nextOffset);
+      setHasMorePackages(Boolean(response.data.has_more));
     } catch (err) {
       setPackagesError(err.response?.data?.error || 'Failed to fetch recommended packages');
       console.error('Package recommendation error:', err);
     } finally {
       setPackagesLoading(false);
+      setPackagesLoadingMore(false);
     }
+  };
+
+  const handleLoadMorePackages = () => {
+    fetchRecommendedPackages({ append: true });
   };
 
   const fetchSearchHistory = async () => {
     try {
       const response = await recommendationAPI.getUserSearchHistory();
       const history = Array.isArray(response.data) ? response.data : [];
-      const shouldShowFollowUp = history.length >= 2;
+      const recommendationHistory = history.filter((item) => item.query === 'recommendation_search');
+      const shouldShowFollowUp = recommendationHistory.length >= 2;
 
       setShowFollowUpRecommendations(shouldShowFollowUp);
 
@@ -208,13 +288,22 @@ export default function HomePage() {
     }
   };
 
-  const fetchYouMightAlsoLike = async () => {
+  const fetchYouMightAlsoLike = async ({ append = false } = {}) => {
     try {
-      setSuggestionsLoading(true);
-      setSuggestionsError('');
+      if (append) {
+        setSuggestionsLoadingMore(true);
+      } else {
+        setSuggestionsLoading(true);
+        setSuggestionsError('');
+      }
 
-      const response = await recommendationAPI.getYouMightAlsoLike(6);
-      setSuggestedDestinations(response.data.results || []);
+      const currentOffset = append ? suggestionsOffset : 0;
+      const response = await recommendationAPI.getYouMightAlsoLike(currentOffset, SUGGESTIONS_PAGE_SIZE);
+      const nextResults = response.data.results || [];
+
+      setSuggestedDestinations((prev) => append ? [...prev, ...nextResults] : nextResults);
+      setSuggestionsOffset(response.data.next_offset ?? currentOffset + nextResults.length);
+      setHasMoreSuggestions(Boolean(response.data.has_more));
     } catch (err) {
       setSuggestionsError(
         err.response?.data?.error ||
@@ -224,7 +313,12 @@ export default function HomePage() {
       console.error('Suggestion error:', err);
     } finally {
       setSuggestionsLoading(false);
+      setSuggestionsLoadingMore(false);
     }
+  };
+
+  const handleLoadMoreSuggestions = () => {
+    fetchYouMightAlsoLike({ append: true });
   };
 
   // AUTO SEARCH
@@ -547,6 +641,19 @@ export default function HomePage() {
               ))}
             </div>
 
+            {hasMoreRecommendations && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleLoadMoreRecommendations}
+                  disabled={loadingMoreDestinations}
+                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+                >
+                  {loadingMoreDestinations ? 'Loading more...' : 'Load more'}
+                </button>
+              </div>
+            )}
+
             {showFollowUpRecommendations && (
               <div className="mt-14 border-t border-gray-200 pt-10">
                 <div className="mb-6">
@@ -569,49 +676,64 @@ export default function HomePage() {
                     {suggestionsError}
                   </div>
                 ) : suggestedDestinations.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {suggestedDestinations.map((destination, index) => (
-                      <div
-                        key={destination.destination_id}
-                        className="bg-white rounded-xl border border-gray-200 shadow-sm transition hover:shadow-xl"
-                      >
-                        <div className="flex items-center justify-between gap-4 p-5">
-                          <div className="flex items-center gap-4 min-w-0">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-blue-500 text-white font-bold text-lg shrink-0">
-                              {index + 1}
+                  <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {suggestedDestinations.map((destination, index) => (
+                        <div
+                          key={destination.destination_id}
+                          className="bg-white rounded-xl border border-gray-200 shadow-sm transition hover:shadow-xl"
+                        >
+                          <div className="flex items-center justify-between gap-4 p-5">
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-blue-500 text-white font-bold text-lg shrink-0">
+                                {index + 1}
+                              </div>
+
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDestinationClick(destination)}
+                                  className="text-xl font-bold text-gray-900 hover:text-blue-600 text-left truncate block max-w-full"
+                                >
+                                  {destination.name}
+                                </button>
+
+                                <p className="text-sm text-gray-500 mt-1 truncate">
+                                  {destination.province}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="min-w-0">
+                            
+                          </div>
+
+                          <div className="border-t border-gray-100 px-5 py-4">
+                            <div className="flex items-center justify-end">
                               <button
                                 type="button"
                                 onClick={() => handleDestinationClick(destination)}
-                                className="text-xl font-bold text-gray-900 hover:text-blue-600 text-left truncate block max-w-full"
+                                className="font-semibold text-blue-600 hover:text-blue-700"
                               >
-                                {destination.name}
+                                View Details
                               </button>
-
-                              <p className="text-sm text-gray-500 mt-1 truncate">
-                                {destination.province}
-                              </p>
                             </div>
                           </div>
-
-                          
                         </div>
+                      ))}
+                    </div>
 
-                        <div className="border-t border-gray-100 px-5 py-4">
-                          <div className="flex items-center justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleDestinationClick(destination)}
-                              className="font-semibold text-blue-600 hover:text-blue-700"
-                            >
-                              View Details
-                            </button>
-                          </div>
-                        </div>
+                    {hasMoreSuggestions && (
+                      <div className="mt-8 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={handleLoadMoreSuggestions}
+                          disabled={suggestionsLoadingMore}
+                          className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+                        >
+                          {suggestionsLoadingMore ? 'Loading more...' : 'Load more'}
+                        </button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 ) : (
                   <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-gray-600">
@@ -645,12 +767,13 @@ export default function HomePage() {
                   {packagesError}
                 </div>
               ) : recommendedPackages.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {recommendedPackages.map((pkg) => (
-                    <div
-                      key={pkg.package_id}
-                      className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-                    >
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {recommendedPackages.map((pkg) => (
+                      <div
+                        key={pkg.package_id}
+                        className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                      >
                       <div className="relative h-52 bg-gray-100">
                         {pkg.image ? (
                           <img
@@ -740,8 +863,22 @@ export default function HomePage() {
                           </button>
                         </div>
                       </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {hasMorePackages && (
+                    <div className="mt-8 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={handleLoadMorePackages}
+                        disabled={packagesLoadingMore}
+                        className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+                      >
+                        {packagesLoadingMore ? 'Loading more...' : 'Load more'}
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-gray-200 bg-white px-6 py-4 text-gray-600">

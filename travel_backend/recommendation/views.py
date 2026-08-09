@@ -1,4 +1,6 @@
 from collections import defaultdict
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.core.cache import cache
 
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -89,6 +92,29 @@ def _safe_float(value, default=None):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _safe_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_for_cache(value):
+    if isinstance(value, dict):
+        return {str(key): _normalize_for_cache(item) for key, item in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, (list, tuple, set)):
+        return [_normalize_for_cache(item) for item in value]
+    return value
+
+
+def _recommendation_batch_cache_key(user_id, payload, version):
+    normalized_payload = _normalize_for_cache(payload)
+    digest = hashlib.sha256(
+        json.dumps(normalized_payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+    return f"recommendation_batch:{version}:{user_id}:{digest}"
 
 
 def _coerce_request_location(request):
@@ -458,6 +484,10 @@ class RecommendationAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        offset = max(0, _safe_int(request.data.get("offset"), 0))
+        page_limit = max(1, _safe_int(request.data.get("limit"), 5))
+        request_batch_key = str(request.data.get("batch_key") or "").strip()
+
         preferred_province = _coerce_preferred_province(request)
         request_provinces = _coerce_preferred_provinces(request)
 
@@ -541,10 +571,6 @@ class RecommendationAPIView(APIView):
             "history": 0.2,
         }
 
-        # ---------------- PARAMETERS ----------------
-
-        destination_top_n = 5
-
         destination_alpha = 0.45
         destination_beta = 0.25
         destination_gamma = 0.2
@@ -582,49 +608,82 @@ class RecommendationAPIView(APIView):
             unique_provinces = list({p.lower(): p for p in provinces_to_filter}.values())
             destinations = destinations.filter(_province_filter_query(unique_provinces))
 
-        # ---------------- RECOMMENDATION ENGINE ----------------
+        cached_user_payload = {
+            "budget": user_budget,
+            "duration": user_duration,
+            "preferred_season": user_season,
+            "preferred_province": preferred_province,
+            "request_provinces": request_provinces or [],
+            "location": {
+                "latitude": resolved_lat,
+                "longitude": resolved_lon,
+            },
+            "user_destination_preferences": user_destination_preferences,
+            "province_scope": sorted(
+                {str(destination.province).strip().lower() for destination in destinations if destination.province}
+            ),
+        }
 
-        destination_ranked = recommend_destinations_direct(
-            user_prefs=user_destination_preferences,
-            user_context=user_context,
-            destinations=destinations,
-            top_n=destination_top_n,
+        batch_key = request_batch_key or _recommendation_batch_cache_key(
+            request.user.id,
+            cached_user_payload,
+            "direct_destinations_v2",
         )
 
-        # ---------------- RESPONSE DATA ----------------
+        destination_data = cache.get(batch_key)
 
-        destination_data = []
+        if destination_data is None:
+            destination_top_n = max(1, destinations.count())
 
-        for item in destination_ranked:
+            # ---------------- RECOMMENDATION ENGINE ----------------
 
-            destination = item.destination
-
-            destination_data.append(
-                {
-                    "destination_id": destination.id,
-                    "name": destination.pName,
-                    "province": destination.province,
-                    "latitude": destination.latitude,
-                    "longitude": destination.longitude,
-                    "image": destination.image,
-                    "culture": destination.culture,
-                    "adventure": destination.adventure,
-                    "wildlife": destination.wildlife,
-                    "sightseeing": destination.sightseeing,
-                    "history": destination.history,
-                    "distance_km": round(item.distance_km, 6),
-                    "preference_score": round(item.preference_score, 6),
-                    "geo_score": round(item.geo_score, 6),
-                    "attribute_alignment": round(
-                        item.package_support_score, 6
-                    ),
-                    "final_score": round(item.final_score, 6),
-                }
+            destination_ranked = recommend_destinations_direct(
+                user_prefs=user_destination_preferences,
+                user_context=user_context,
+                destinations=destinations,
+                top_n=destination_top_n,
             )
+
+            # ---------------- RESPONSE DATA ----------------
+
+            destination_data = []
+
+            for item in destination_ranked:
+
+                destination = item.destination
+
+                destination_data.append(
+                    {
+                        "destination_id": destination.id,
+                        "name": destination.pName,
+                        "province": destination.province,
+                        "latitude": destination.latitude,
+                        "longitude": destination.longitude,
+                        "image": str(destination.image) if destination.image else None,
+                        "culture": destination.culture,
+                        "adventure": destination.adventure,
+                        "wildlife": destination.wildlife,
+                        "sightseeing": destination.sightseeing,
+                        "history": destination.history,
+                        "distance_km": round(item.distance_km, 6),
+                        "preference_score": round(item.preference_score, 6),
+                        "geo_score": round(item.geo_score, 6),
+                        "attribute_alignment": round(
+                            item.package_support_score, 6
+                        ),
+                        "final_score": round(item.final_score, 6),
+                    }
+                )
+
+            cache.set(batch_key, destination_data, timeout=60 * 30)
+
+        total_destination_count = len(destination_data)
+        paged_destinations = destination_data[offset:offset + page_limit]
+        next_offset = offset + len(paged_destinations)
 
         # ---------------- SAVE SEARCH HISTORY ----------------
 
-        if save_history:
+        if save_history and offset == 0:
             SearchHistory.objects.create(
                 user=request.user,
                 query="recommendation_search",
@@ -646,13 +705,19 @@ class RecommendationAPIView(APIView):
         return Response(
             {
                 "recommendation_type": "direct_destinations_6_algorithm",
+                "batch_key": batch_key,
                 "pipeline": [
                     "CPS_with_constraints",
                     "C_KNN_weighted_euclidean",
                     "Proximity_efficiency",
                     "Weighted_scoring",
                 ],
-                "destination_count": len(destination_data),
+                "destination_count": len(paged_destinations),
+                "total_destination_count": total_destination_count,
+                "offset": offset,
+                "limit": page_limit,
+                "has_more": next_offset < total_destination_count,
+                "next_offset": next_offset,
                 "used_user_location": {
                     "latitude": resolved_lat,
                     "longitude": resolved_lon,
@@ -668,7 +733,7 @@ class RecommendationAPIView(APIView):
                     "preferred_season": user_season,
                 },
                 "user_preferences": user_destination_preferences,
-                "destination_results": destination_data,
+                "destination_results": paged_destinations,
             },
             status=status.HTTP_200_OK,
         )
@@ -687,9 +752,15 @@ class YouMightAlsoLikeAPIView(APIView):
 
             profile, _ = UserProfile.objects.get_or_create(user=user)
 
-        top_n = _safe_float(request.query_params.get("top_n"), 6)
-        top_n = int(top_n) if top_n else 6
-        top_n = max(1, min(top_n, 12))
+        offset = max(0, _safe_int(request.query_params.get("offset"), 0))
+        requested_limit = _safe_int(request.query_params.get("limit"), None)
+        legacy_top_n = _safe_int(request.query_params.get("top_n"), None)
+
+        if requested_limit is None:
+            requested_limit = legacy_top_n if legacy_top_n and legacy_top_n > 0 else 6
+
+        requested_limit = max(1, requested_limit)
+        requested_total = max(6, offset + requested_limit, legacy_top_n or 0)
 
         user_context = {
             "budget": profile.budget,
@@ -716,7 +787,7 @@ class YouMightAlsoLikeAPIView(APIView):
             user_prefs=user_preferences,
             user_context=user_context,
             destinations=Destination.objects.all(),
-            top_n=max(6, top_n),
+            top_n=requested_total,
         )
 
         for item in profile_ranked:
@@ -725,7 +796,7 @@ class YouMightAlsoLikeAPIView(APIView):
             bucket["score"] += float(item.final_score)
             bucket["source_flags"].add("profile")
 
-        recent_history_candidates = _gather_recent_search_suggestions(user, limit=max(6, top_n))
+        recent_history_candidates = _gather_recent_search_suggestions(user, limit=requested_total)
         for item in recent_history_candidates:
             destination_id = item["destination_id"]
             bucket = candidate_scores[destination_id]
@@ -771,9 +842,16 @@ class YouMightAlsoLikeAPIView(APIView):
 
         results.sort(key=lambda item: item.get("recommendation_score", 0.0), reverse=True)
 
+        total_count = len(results)
+        paged_results = results[offset:offset + requested_limit]
+        next_offset = offset + len(paged_results)
+
         return Response(
             {
-                "results": results[:top_n],
+                "results": paged_results,
+                "count": total_count,
+                "has_more": next_offset < total_count,
+                "next_offset": next_offset,
                 "section_title": "You Might Also Like",
                 "section_subtitle": "A blend of your recent searches and profile preferences.",
             },
@@ -797,6 +875,9 @@ class RecommendedPackagesAPIView(APIView):
         request_budget = _safe_float(request.data.get("budget"))
         request_duration = _safe_float(request.data.get("duration"))
         request_provinces = _coerce_preferred_provinces(request)
+        offset = max(0, _safe_int(request.data.get("offset"), 0))
+        page_limit = max(1, _safe_int(request.data.get("limit"), 6))
+        request_batch_key = str(request.data.get("batch_key") or "").strip()
 
         user_budget = request_budget if request_budget is not None else profile.budget
         user_duration = request_duration if request_duration is not None else profile.preferred_duration
@@ -804,10 +885,6 @@ class RecommendedPackagesAPIView(APIView):
         preferred_provinces = request_provinces
         if not preferred_provinces and hasattr(profile, "get_preferred_provinces"):
             preferred_provinces = profile.get_preferred_provinces()
-
-        top_n = _safe_float(request.data.get("top_n"), 6)
-        top_n = int(top_n) if top_n else 6
-        top_n = max(1, min(top_n, 12))
 
         packages = (
             TravelPackage.objects.select_related("start_location", "end_location")
@@ -827,68 +904,95 @@ class RecommendedPackagesAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        ranked_packages = []
+        cached_user_payload = {
+            "budget": user_budget,
+            "duration": user_duration,
+            "preferred_provinces": preferred_provinces,
+        }
 
-        for package in packages:
-            match_score = _package_match_score(package, profile, preferred_provinces)
-            reasons = _package_match_reasons(package, profile, preferred_provinces)
+        batch_key = request_batch_key or _recommendation_batch_cache_key(
+            request.user.id,
+            cached_user_payload,
+            "recommended_packages_v1",
+        )
 
-            package_image = None
-            if package.image:
-                package_image = request.build_absolute_uri(package.image.url)
+        ranked_packages = cache.get(batch_key)
 
-            ranked_packages.append(
-                {
-                    "package_id": package.id,
-                    "name": package.name,
-                    "description": package.description,
-                    "days": package.days,
-                    "budget": package.budget,
-                    "transport_mode": package.transport_mode,
-                    "package_type": package.package_type,
-                    "number_of_travelers": package.number_of_travelers,
-                    "start_location": (
-                        package.start_location.pName
-                        if package.start_location
-                        else None
-                    ),
-                    "destination_id": (
-                        package.end_location.id
-                        if package.end_location
-                        else None
-                    ),
-                    "destination_name": (
-                        package.end_location.pName
-                        if package.end_location
-                        else None
-                    ),
-                    "province": (
-                        package.end_location.province
-                        if package.end_location
-                        else None
-                    ),
-                    "image": package_image,
-                    "includes": _normalize_text_list(package.includes),
-                    "excludes": _normalize_text_list(package.excludes),
-                    "distance_km": round(package.distance_km, 2),
-                    "match_score": round(match_score, 6),
-                    "recommendation_reason": reasons[0],
-                    "recommendation_reasons": reasons,
-                }
+        if ranked_packages is None:
+            ranked_packages = []
+
+            for package in packages:
+                match_score = _package_match_score(package, profile, preferred_provinces)
+                reasons = _package_match_reasons(package, profile, preferred_provinces)
+
+                package_image = None
+                if package.image:
+                    package_image = request.build_absolute_uri(package.image.url)
+
+                ranked_packages.append(
+                    {
+                        "package_id": package.id,
+                        "name": package.name,
+                        "description": package.description,
+                        "days": package.days,
+                        "budget": package.budget,
+                        "transport_mode": package.transport_mode,
+                        "package_type": package.package_type,
+                        "number_of_travelers": package.number_of_travelers,
+                        "start_location": (
+                            package.start_location.pName
+                            if package.start_location
+                            else None
+                        ),
+                        "destination_id": (
+                            package.end_location.id
+                            if package.end_location
+                            else None
+                        ),
+                        "destination_name": (
+                            package.end_location.pName
+                            if package.end_location
+                            else None
+                        ),
+                        "province": (
+                            package.end_location.province
+                            if package.end_location
+                            else None
+                        ),
+                        "image": package_image,
+                        "includes": _normalize_text_list(package.includes),
+                        "excludes": _normalize_text_list(package.excludes),
+                        "distance_km": round(package.distance_km, 2),
+                        "match_score": round(match_score, 6),
+                        "recommendation_reason": reasons[0],
+                        "recommendation_reasons": reasons,
+                    }
+                )
+
+            ranked_packages.sort(
+                key=lambda item: (
+                    item.get("match_score", 0.0),
+                    -float(item.get("budget") or 0.0),
+                ),
+                reverse=True,
             )
 
-        ranked_packages.sort(
-            key=lambda item: (
-                item.get("match_score", 0.0),
-                -float(item.get("budget") or 0.0),
-            ),
-            reverse=True,
-        )
+            cache.set(batch_key, ranked_packages, timeout=60 * 30)
+
+        total_package_count = len(ranked_packages)
+        paged_packages = ranked_packages[offset:offset + page_limit]
+        next_offset = offset + len(paged_packages)
 
         return Response(
             {
-                "package_count": len(ranked_packages[:top_n]),
-                "packages": ranked_packages[:top_n],
+                "batch_key": batch_key,
+                "package_count": len(paged_packages),
+                "total_package_count": total_package_count,
+                "offset": offset,
+                "limit": page_limit,
+                "has_more": next_offset < total_package_count,
+                "next_offset": next_offset,
+                "packages": paged_packages,
                 "constraints_applied": {
                     "budget_npr": user_budget,
                     "duration_days": user_duration,
@@ -1147,14 +1251,6 @@ class DestinationSearchAPIView(APIView):
                 }
             )
 
-        # ---------------- SAVE SEARCH HISTORY ----------------
-
-        if request.user.is_authenticated and query:
-            SearchHistory.objects.create(
-                user=request.user,
-                query=query,
-                destination_results=results,
-            )
         # ---------------- RESPONSE ----------------
 
         return Response(
@@ -1173,87 +1269,113 @@ class DestinationGeocodeAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        # Accept either `name` or `q` as the query parameter
+        q = (request.query_params.get('name') or request.query_params.get('q') or '').strip()
+        if not q:
+            return Response({'detail': "Query parameter 'name' or 'q' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        destination_name = request.query_params.get(
-            "name",
-            "",
-        ).strip()
+        # Optional: allow caller to provide a country/context (e.g. 'Nepal')
+        country = (request.query_params.get('country') or 'Nepal').strip()
+        limit = int(request.query_params.get('limit') or 12)
+        if limit < 1:
+            limit = 12
+        if limit > 12:
+            limit = 12
 
-        if not destination_name:
-            return Response(
-                {
-                    "detail": "Query parameter 'name' is required."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        def fetch_nominatim(query_text):
+            params = urlencode({
+                'q': query_text,
+                'format': 'json',
+                'limit': limit,
+                'addressdetails': 1,
+            })
 
-        query = f"{destination_name}, Nepal"
+            url = f"https://nominatim.openstreetmap.org/search?{params}"
+            req = Request(url, headers={'User-Agent': 'travel-backend/1.0'})
 
-        params = urlencode(
-            {
-                "q": query,
-                "format": "json",
-                "limit": 5,
-                "addressdetails": 1,
-            }
-        )
-
-        url = f"https://nominatim.openstreetmap.org/search?{params}"
-
-        req = Request(
-            url,
-            headers={
-                "User-Agent": "travel-backend/1.0"
-            },
-        )
-
-        try:
             with urlopen(req, timeout=10) as response:
-                payload = json.loads(
-                    response.read().decode("utf-8")
-                )
+                return json.loads(response.read().decode('utf-8'))
 
-        except Exception:
-            return Response(
-                {
-                    "detail": "Unable to fetch location right now."
-                },
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+        payload = []
+        primary_query = f"{q}, {country}" if country else q
+        cache_key = f"geocode:nominatim:{country}:{q}:{limit}"
+        cached_payload = cache.get(cache_key)
+
+        if cached_payload is not None:
+            payload = cached_payload
+        else:
+            try:
+                payload = fetch_nominatim(primary_query)
+                cache.set(cache_key, payload, 60 * 60)
+            except Exception:
+                payload = []
+
+        if not payload and primary_query != q:
+            cache_key = f"geocode:nominatim:plain:{q}:{limit}"
+            cached_payload = cache.get(cache_key)
+
+            if cached_payload is not None:
+                payload = cached_payload
+            else:
+                try:
+                    payload = fetch_nominatim(q)
+                    cache.set(cache_key, payload, 60 * 60)
+                except Exception:
+                    return Response({'detail': 'Unable to fetch location right now.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         if not payload:
-            return Response(
-                {
-                    "detail": "No location found for this destination in Nepal."
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            q_terms = [token for token in str(q).strip().split() if token]
+            fallbacks = []
+            if q_terms:
+                destination_filter = Q(pName__icontains=q_terms[0])
+                for term in q_terms[1:]:
+                    destination_filter |= Q(pName__icontains=term)
+                    destination_filter |= Q(city__icontains=term)
+                    destination_filter |= Q(province__icontains=term)
 
-        preferred = None
+                destination_filter |= Q(city__icontains=q)
+                destination_filter |= Q(province__icontains=q)
+
+                candidates = Destination.objects.filter(
+                    destination_filter,
+                    latitude__isnull=False,
+                    longitude__isnull=False,
+                ).order_by('pName')[:limit]
+
+                for dest in candidates:
+                    display_name = dest.pName or dest.city or dest.province or 'Destination'
+                    if dest.city:
+                        display_name = f"{display_name}, {dest.city}"
+                    if dest.province:
+                        display_name = f"{display_name}, {dest.province}"
+
+                    fallbacks.append({
+                        'display_name': display_name,
+                        'latitude': float(dest.latitude),
+                        'longitude': float(dest.longitude),
+                        'type': 'destination',
+                        'importance': 1.0,
+                    })
+
+            if fallbacks:
+                return Response({'results': fallbacks}, status=status.HTTP_200_OK)
+
+            return Response({'detail': 'No location found for this query.'}, status=status.HTTP_404_NOT_FOUND)
+
+        results = []
         for item in payload:
-            display_name = str(item.get("display_name", "")).lower()
-            if "nepal" not in display_name:
+            try:
+                results.append({
+                    'display_name': item.get('display_name'),
+                    'latitude': float(item.get('lat')),
+                    'longitude': float(item.get('lon')),
+                    'type': item.get('type'),
+                    'importance': float(item.get('importance') or 0),
+                })
+            except Exception:
                 continue
 
-            if preferred is None:
-                preferred = item
-                continue
-
-            if float(item.get("importance", 0) or 0) > float(preferred.get("importance", 0) or 0):
-                preferred = item
-
-        if preferred is None:
-            preferred = payload[0]
-
-        return Response(
-            {
-                "name": destination_name,
-                "latitude": float(preferred.get("lat")),
-                "longitude": float(preferred.get("lon")),
-                "display_name": preferred.get("display_name"),
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({'results': results}, status=status.HTTP_200_OK)
 # ---------------- DESTINATION PACKAGES API ----------------
 
 class DestinationPackagesAPIView(APIView):

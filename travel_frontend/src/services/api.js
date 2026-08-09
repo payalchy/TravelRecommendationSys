@@ -69,6 +69,90 @@ export const authAPI = {
 };
 
 
+// Shared client-side geocode search/ranking for the Choose-on-Map UI.
+// This keeps the map modal connected to place lookup instead of the
+// recommendation database search layer.
+export const resolveLocationSearch = async (rawQuery, options = {}) => {
+  const query = String(rawQuery ?? '').trim();
+  const normalizedQuery = query.toLowerCase();
+
+  if (!query || query.length < 2) {
+    return [];
+  }
+
+  const limit = options.limit ?? 12;
+  const country = options.country ?? 'Nepal';
+
+  let geoResp;
+
+  try {
+    geoResp = await api.get('/destination/geocode/', {
+      params: {
+        name: query,
+        country,
+        limit,
+      },
+    });
+  } catch (err) {
+    console.error('Location geocode lookup failed:', err);
+    return [];
+  }
+
+  const seen = new Set();
+  const combined = [];
+
+  const pushSuggestion = (item, source) => {
+    if (!item || item.latitude == null || item.longitude == null) return;
+
+    const displayName = String(item.display_name || item.name || '').trim();
+    const latitude = Number(item.latitude);
+    const longitude = Number(item.longitude);
+
+    if (!displayName || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return;
+    }
+
+    const key = `${latitude.toFixed(6)}:${longitude.toFixed(6)}:${displayName.toLowerCase()}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const haystack = `${displayName} ${(item.city || '')} ${(item.province || '')}`.toLowerCase();
+    const exactMatch = haystack === normalizedQuery || haystack.startsWith(normalizedQuery) || haystack.includes(` ${normalizedQuery} `);
+    const prefixMatch = haystack.startsWith(normalizedQuery);
+    const containsMatch = haystack.includes(normalizedQuery);
+
+    combined.push({
+      display_name: displayName,
+      latitude,
+      longitude,
+      type: item.type || source,
+      importance: Number(item.importance || 0),
+      source,
+      _score: (exactMatch ? 300 : 0) + (prefixMatch ? 120 : 0) + (containsMatch ? 40 : 0) + Number(item.importance || 0),
+    });
+  };
+
+  const data = geoResp.data;
+
+  if (Array.isArray(data?.results)) {
+    data.results.forEach((item) => pushSuggestion(item, 'geocode'));
+  } else if (data?.latitude && data?.longitude) {
+    pushSuggestion(
+      {
+        display_name: data.display_name || data.name || query,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        type: data.type || 'geocode',
+        importance: data.importance || 0,
+      },
+      'geocode'
+    );
+  }
+
+  combined.sort((a, b) => b._score - a._score);
+  return combined.slice(0, 12);
+};
+
 // RECOMMENDATION API
 
 export const recommendationAPI = {
@@ -106,9 +190,9 @@ export const recommendationAPI = {
     api.post('/recommend/', payload),
 
   // Get blended personalized suggestions
-  getYouMightAlsoLike: (topN = 6) =>
+  getYouMightAlsoLike: (offset = 0, limit = 6) =>
     api.get('/recommend/you-might-also-like/', {
-      params: { top_n: topN },
+      params: { offset, limit },
     }),
 
   // Get ranked package recommendations

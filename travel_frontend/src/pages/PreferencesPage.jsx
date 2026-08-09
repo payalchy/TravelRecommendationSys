@@ -235,8 +235,10 @@ export default function PreferencesPage() {
   };
 
   const showHomeButton = !location.state?.fromRegistration;
-  const defaultMapLat = Number.isFinite(Number(locationData.latitude)) ? Number(locationData.latitude) : 27.7172;
-  const defaultMapLon = Number.isFinite(Number(locationData.longitude)) ? Number(locationData.longitude) : 85.324;
+  const hasValidLat = locationData.latitude !== '' && locationData.latitude !== null && locationData.latitude !== undefined && Number.isFinite(Number(locationData.latitude));
+  const hasValidLon = locationData.longitude !== '' && locationData.longitude !== null && locationData.longitude !== undefined && Number.isFinite(Number(locationData.longitude));
+  const defaultMapLat = hasValidLat ? Number(locationData.latitude) : 27.7172;
+  const defaultMapLon = hasValidLon ? Number(locationData.longitude) : 85.324;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -265,13 +267,18 @@ export default function PreferencesPage() {
       await recommendationAPI.updateUserProfile(updateData);
       storeProvinceSelection(selectedProvinces);
 
-      await recommendationAPI.getRecommendations({
+      const recommendationResponse = await recommendationAPI.getRecommendations({
         ...updateData,
         save_history: true,
       });
 
       await refreshUserProfile();
-      navigate('/home', { replace: true });
+      navigate('/home', {
+        replace: true,
+        state: {
+          initialRecommendations: recommendationResponse.data,
+        },
+      });
     } catch (err) {
       console.error('Update error:', err);
       const apiResponse = err.response?.data;
