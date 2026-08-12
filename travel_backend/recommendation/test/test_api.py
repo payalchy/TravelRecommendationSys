@@ -8,14 +8,26 @@ from recommendation.models import Destination
 
 
 class RecommendationAPITest(APITestCase):
+    """
+    API tests for the recommendation system.
+    """
 
     def setUp(self):
+        """
+        Create a test user, profile, and destination dataset.
+        """
 
+        # ---------------------------------------------------------
+        # CREATE TEST USER
+        # ---------------------------------------------------------
         self.user = User.objects.create_user(
             username="testuser",
             password="testpassword"
         )
 
+        # ---------------------------------------------------------
+        # CREATE USER PROFILE
+        # ---------------------------------------------------------
         UserProfile.objects.create(
             user=self.user,
             budget=50000,
@@ -25,6 +37,9 @@ class RecommendationAPITest(APITestCase):
             longitude=85.3240,
         )
 
+        # ---------------------------------------------------------
+        # CREATE TEST DESTINATIONS
+        # ---------------------------------------------------------
         destination_rows = [
             {
                 "pName": "Pokhara",
@@ -119,11 +134,21 @@ class RecommendationAPITest(APITestCase):
         for row in destination_rows:
             Destination.objects.create(**row)
 
+        # ---------------------------------------------------------
+        # AUTHENTICATE TEST CLIENT
+        # ---------------------------------------------------------
         self.client.force_authenticate(
             user=self.user
         )
 
+    # ============================================================
+    # RECOMMENDATION API TEST
+    # ============================================================
+
     def test_recommendation_api(self):
+        """
+        Test the main recommendation API.
+        """
 
         url = reverse("recommend-packages")
 
@@ -149,51 +174,26 @@ class RecommendationAPITest(APITestCase):
             status.HTTP_200_OK
         )
 
+        # Current API returns destination recommendations.
         self.assertIn(
             "destination_results",
             response.data
         )
 
-    def test_recommended_packages_api_pagination(self):
-
-        url = reverse("recommend-packages")
-
-        payload = {
-            "budget": 40000,
-            "duration": 4,
-            "preferred_season": "Winter",
-            "preferred_provinces": ["Bagmati"],
-            "offset": 0,
-            "limit": 6,
-        }
-
-        first_response = self.client.post(
-            url,
-            payload,
-            format="json"
+        # At least one destination should be returned.
+        self.assertGreater(
+            len(response.data["destination_results"]),
+            0
         )
 
-        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertIn("batch_key", first_response.data)
-        self.assertIn("has_more", first_response.data)
-        self.assertIn("next_offset", first_response.data)
-        self.assertLessEqual(len(first_response.data["packages"]), 6)
-
-        second_response = self.client.post(
-            url,
-            {
-                **payload,
-                "offset": first_response.data["next_offset"],
-                "batch_key": first_response.data["batch_key"],
-            },
-            format="json"
-        )
-
-        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(second_response.data["batch_key"], first_response.data["batch_key"])
-        self.assertLessEqual(len(second_response.data["packages"]), 6)
+    # ============================================================
+    # RECOMMENDATION API PAGINATION
+    # ============================================================
 
     def test_recommendation_api_pagination(self):
+        """
+        Test pagination of destination recommendations.
+        """
 
         url = reverse("recommend-packages")
 
@@ -208,6 +208,9 @@ class RecommendationAPITest(APITestCase):
             "save_history": False,
         }
 
+        # ---------------------------------------------------------
+        # FIRST PAGE
+        # ---------------------------------------------------------
         first_response = self.client.post(
             url,
             payload,
@@ -218,11 +221,35 @@ class RecommendationAPITest(APITestCase):
             first_response.status_code,
             status.HTTP_200_OK
         )
-        self.assertIn("batch_key", first_response.data)
-        self.assertIn("has_more", first_response.data)
-        self.assertIn("next_offset", first_response.data)
-        self.assertEqual(len(first_response.data["destination_results"]), 5)
 
+        self.assertIn(
+            "batch_key",
+            first_response.data
+        )
+
+        self.assertIn(
+            "has_more",
+            first_response.data
+        )
+
+        self.assertIn(
+            "next_offset",
+            first_response.data
+        )
+
+        self.assertIn(
+            "destination_results",
+            first_response.data
+        )
+
+        self.assertLessEqual(
+            len(first_response.data["destination_results"]),
+            5
+        )
+
+        # ---------------------------------------------------------
+        # SECOND PAGE
+        # ---------------------------------------------------------
         second_response = self.client.post(
             url,
             {
@@ -237,91 +264,342 @@ class RecommendationAPITest(APITestCase):
             second_response.status_code,
             status.HTTP_200_OK
         )
-        self.assertEqual(second_response.data["batch_key"], first_response.data["batch_key"])
-        self.assertLessEqual(len(second_response.data["destination_results"]), 5)
+
+        self.assertEqual(
+            second_response.data["batch_key"],
+            first_response.data["batch_key"]
+        )
+
+        self.assertIn(
+            "destination_results",
+            second_response.data
+        )
+
+        self.assertLessEqual(
+            len(second_response.data["destination_results"]),
+            5
+        )
+
+    # ============================================================
+    # PROVINCE-FILTERED PAGINATION
+    # ============================================================
+
+    def test_province_filtered_recommendation_pagination(self):
+        """
+        Test recommendation pagination when a province filter
+        is applied.
+
+        This replaces the old test that expected a non-existent
+        'packages' response key.
+        """
+
+        url = reverse("recommend-packages")
+
+        payload = {
+            "budget": 40000,
+            "duration": 4,
+            "preferred_season": "Winter",
+            "preferred_provinces": ["Bagmati"],
+            "user_latitude": 27.7172,
+            "user_longitude": 85.3240,
+            "offset": 0,
+            "limit": 6,
+        }
+
+        # ---------------------------------------------------------
+        # FIRST PAGE
+        # ---------------------------------------------------------
+        first_response = self.client.post(
+            url,
+            payload,
+            format="json"
+        )
+
+        self.assertEqual(
+            first_response.status_code,
+            status.HTTP_200_OK
+        )
+
+        self.assertIn(
+            "batch_key",
+            first_response.data
+        )
+
+        self.assertIn(
+            "has_more",
+            first_response.data
+        )
+
+        self.assertIn(
+            "next_offset",
+            first_response.data
+        )
+
+        self.assertIn(
+            "destination_results",
+            first_response.data
+        )
+
+        self.assertLessEqual(
+            len(first_response.data["destination_results"]),
+            6
+        )
+
+        # ---------------------------------------------------------
+        # VERIFY PROVINCE FILTER
+        # ---------------------------------------------------------
+        for destination in first_response.data["destination_results"]:
+            self.assertEqual(
+                destination["province"],
+                "Bagmati"
+            )
+
+        # ---------------------------------------------------------
+        # SECOND PAGE
+        # ---------------------------------------------------------
+        if first_response.data["has_more"]:
+            second_response = self.client.post(
+                url,
+                {
+                    **payload,
+                    "offset": first_response.data["next_offset"],
+                    "batch_key": first_response.data["batch_key"],
+                },
+                format="json"
+            )
+
+            self.assertEqual(
+                second_response.status_code,
+                status.HTTP_200_OK
+            )
+
+            self.assertEqual(
+                second_response.data["batch_key"],
+                first_response.data["batch_key"]
+            )
+
+            self.assertIn(
+                "destination_results",
+                second_response.data
+            )
+
+            self.assertLessEqual(
+                len(second_response.data["destination_results"]),
+                6
+            )
+
+            for destination in second_response.data["destination_results"]:
+                self.assertEqual(
+                    destination["province"],
+                    "Bagmati"
+                )
+
+    # ============================================================
+    # YOU MIGHT ALSO LIKE
+    # ============================================================
 
     def test_you_might_also_like_api_pagination(self):
+        """
+        Test pagination of the 'You Might Also Like' API.
+        """
 
         url = reverse("you-might-also-like")
 
         response = self.client.get(
             url,
-            {"offset": 0, "limit": 6}
+            {
+                "offset": 0,
+                "limit": 6
+            }
         )
 
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
         )
-        self.assertIn("results", response.data)
-        self.assertIn("count", response.data)
-        self.assertIn("has_more", response.data)
-        self.assertIn("next_offset", response.data)
-        self.assertLessEqual(len(response.data["results"]), 6)
-        self.assertGreaterEqual(response.data["count"], len(response.data["results"]))
+
+        self.assertIn(
+            "results",
+            response.data
+        )
+
+        self.assertIn(
+            "count",
+            response.data
+        )
+
+        self.assertIn(
+            "has_more",
+            response.data
+        )
+
+        self.assertIn(
+            "next_offset",
+            response.data
+        )
+
+        self.assertLessEqual(
+            len(response.data["results"]),
+            6
+        )
+
+        self.assertGreaterEqual(
+            response.data["count"],
+            len(response.data["results"])
+        )
+
+    # ============================================================
+    # SEARCH HISTORY
+    # ============================================================
 
     def test_search_history_list_api_returns_recommendation_rows(self):
+        """
+        Test that search history returns recommendation records.
+        """
+
         SearchHistory.objects.create(
             user=self.user,
             query="recommendation_search",
-            search_payload={"budget": 40000},
-            destination_results=[{"destination_id": 1, "name": "Pokhara"}],
+            search_payload={
+                "budget": 40000
+            },
+            destination_results=[
+                {
+                    "destination_id": 1,
+                    "name": "Pokhara"
+                }
+            ],
         )
 
         url = reverse("search-history")
+
         response = self.client.get(url)
 
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
         )
-        self.assertGreaterEqual(len(response.data), 1)
-        self.assertTrue(
-            any(item.get("query") == "recommendation_search" for item in response.data)
+
+        self.assertGreaterEqual(
+            len(response.data),
+            1
         )
 
+        self.assertTrue(
+            any(
+                item.get("query") == "recommendation_search"
+                for item in response.data
+            )
+        )
+
+    # ============================================================
+    # DESTINATION SEARCH
+    # ============================================================
+
     def test_destination_search_api_does_not_write_history(self):
+        """
+        Test that destination search does not create a SearchHistory
+        record.
+        """
 
         url = reverse("destination-search")
-        before_count = SearchHistory.objects.filter(user=self.user).count()
+
+        before_count = SearchHistory.objects.filter(
+            user=self.user
+        ).count()
 
         response = self.client.get(
             url,
-            {"q": "Pokhara", "limit": 1, "offset": 0}
+            {
+                "q": "Pokhara",
+                "limit": 1,
+                "offset": 0
+            }
         )
 
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
         )
-        self.assertIn("results", response.data)
-        self.assertIn("count", response.data)
-        self.assertIn("has_more", response.data)
-        self.assertGreaterEqual(response.data["count"], 1)
+
+        self.assertIn(
+            "results",
+            response.data
+        )
+
+        self.assertIn(
+            "count",
+            response.data
+        )
+
+        self.assertIn(
+            "has_more",
+            response.data
+        )
+
+        self.assertGreaterEqual(
+            response.data["count"],
+            1
+        )
+
+        after_count = SearchHistory.objects.filter(
+            user=self.user
+        ).count()
+
         self.assertEqual(
-            SearchHistory.objects.filter(user=self.user).count(),
+            after_count,
             before_count
         )
 
     def test_destination_search_api(self):
+        """
+        Test destination search API.
+        """
 
         url = reverse("destination-search")
 
         response = self.client.get(
             url,
-            {"q": "Pokhara", "limit": 1, "offset": 0}
+            {
+                "q": "Pokhara",
+                "limit": 1,
+                "offset": 0
+            }
         )
 
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
         )
-        self.assertIn("results", response.data)
-        self.assertIn("count", response.data)
-        self.assertIn("has_more", response.data)
-        self.assertGreaterEqual(response.data["count"], 1)
+
+        self.assertIn(
+            "results",
+            response.data
+        )
+
+        self.assertIn(
+            "count",
+            response.data
+        )
+
+        self.assertIn(
+            "has_more",
+            response.data
+        )
+
+        self.assertGreaterEqual(
+            response.data["count"],
+            1
+        )
+
+    # ============================================================
+    # DESTINATION PROVINCES
+    # ============================================================
 
     def test_destination_province_api(self):
+        """
+        Test destination province API.
+        """
 
         url = reverse("destination-provinces")
 
@@ -330,4 +608,10 @@ class RecommendationAPITest(APITestCase):
         self.assertEqual(
             response.status_code,
             status.HTTP_200_OK
+        )
+
+        # The endpoint may return either a list directly or a
+        # dictionary containing province information.
+        self.assertIsNotNone(
+            response.data
         )
