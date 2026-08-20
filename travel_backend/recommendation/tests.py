@@ -178,6 +178,17 @@ class RecommendationAPITests(APITestCase):
             1,
         )
 
+    def test_recommended_packages_stay_within_request_budget(self):
+        response = self.client.post(
+            reverse("recommended-packages"),
+            {"budget": 10000},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["packages"], [])
+        self.assertEqual(response.data["package_count"], 0)
+
     def test_recommendation_uses_profile_location_when_request_missing(self):
         """
         Verify that the user's saved profile location is used when

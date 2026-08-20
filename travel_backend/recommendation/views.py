@@ -303,10 +303,14 @@ def _package_style_score(profile_styles, package_type):
     return 0.25
 
 
-def _package_match_reasons(package, profile, preferred_provinces=None):
+def _package_match_reasons(package, profile, preferred_provinces=None, budget=None):
     reasons = []
 
-    budget = _safe_float(getattr(profile, "budget", None)) if profile else None
+    budget = (
+        _safe_float(budget)
+        if budget is not None
+        else _safe_float(getattr(profile, "budget", None)) if profile else None
+    )
     duration = _safe_float(getattr(profile, "preferred_duration", None)) if profile else None
     selected_styles = [style.name for style in profile.preferred_travel_style.all()] if profile else []
 
@@ -358,9 +362,14 @@ def _package_match_reasons(package, profile, preferred_provinces=None):
     return unique_reasons[:3]
 
 
-def _package_match_score(package, profile, preferred_provinces=None):
+def _package_match_score(package, profile, preferred_provinces=None, budget=None):
+    budget = (
+        budget
+        if budget is not None
+        else getattr(profile, "budget", None) if profile else None
+    )
     budget_score = _package_similarity_score(
-        getattr(profile, "budget", None) if profile else None,
+        budget,
         getattr(package, "budget", None),
     )
 
@@ -891,6 +900,9 @@ class RecommendedPackagesAPIView(APIView):
             .all()
         )
 
+        if user_budget is not None:
+            packages = packages.filter(budget__lte=user_budget)
+
         if not packages.exists():
             return Response(
                 {
@@ -913,7 +925,7 @@ class RecommendedPackagesAPIView(APIView):
         batch_key = request_batch_key or _recommendation_batch_cache_key(
             request.user.id,
             cached_user_payload,
-            "recommended_packages_v1",
+            "recommended_packages_v2",
         )
 
         ranked_packages = cache.get(batch_key)
@@ -922,8 +934,18 @@ class RecommendedPackagesAPIView(APIView):
             ranked_packages = []
 
             for package in packages:
-                match_score = _package_match_score(package, profile, preferred_provinces)
-                reasons = _package_match_reasons(package, profile, preferred_provinces)
+                match_score = _package_match_score(
+                    package,
+                    profile,
+                    preferred_provinces,
+                    user_budget,
+                )
+                reasons = _package_match_reasons(
+                    package,
+                    profile,
+                    preferred_provinces,
+                    user_budget,
+                )
 
                 package_image = None
                 if package.image:
@@ -971,10 +993,9 @@ class RecommendedPackagesAPIView(APIView):
 
             ranked_packages.sort(
                 key=lambda item: (
-                    item.get("match_score", 0.0),
-                    -float(item.get("budget") or 0.0),
-                ),
-                reverse=True,
+                    -item.get("match_score", 0.0),
+                    float(item.get("budget") or 0.0),
+                )
             )
 
             cache.set(batch_key, ranked_packages, timeout=60 * 30)
