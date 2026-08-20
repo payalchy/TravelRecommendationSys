@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { recommendationAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import mainImage from '../assets/images/main.jpg';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -384,7 +385,16 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{
+        backgroundImage: `linear-gradient(rgba(248, 250, 252, 0.65), rgba(248, 250, 252, 0.65)), url(${mainImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
 
       {/* Header */}
       <header className="bg-white shadow">
