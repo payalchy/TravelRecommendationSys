@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 import json
 from urllib.parse import urlencode
@@ -1148,11 +1149,39 @@ class BookingCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        client_request_id = str(request.data.get('client_request_id') or '').strip()
+        if client_request_id:
+            existing_booking = Booking.objects.filter(
+                user=request.user,
+                client_request_id=client_request_id,
+            ).first()
+            if existing_booking:
+                response_serializer = BookingSerializer(existing_booking)
+                return Response(
+                    {
+                        'message': 'Booking request already received.',
+                        'booking': response_serializer.data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
         serializer = BookingSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        booking = serializer.save(user=request.user)
+        try:
+            with transaction.atomic():
+                booking = serializer.save(
+                    user=request.user,
+                    client_request_id=client_request_id or None,
+                )
+        except IntegrityError:
+            if not client_request_id:
+                raise
+            booking = Booking.objects.get(
+                user=request.user,
+                client_request_id=client_request_id,
+            )
 
         if _is_cash_payment(booking.payment_method):
             booking.payment_status = Booking.PAYMENT_PENDING

@@ -408,6 +408,13 @@ class Booking(models.Model):
 
     email = models.EmailField()
 
+    client_request_id = models.CharField(
+        max_length=100,
+        unique=True,
+        null=True,
+        blank=True,
+    )
+
 
     payment_method = models.CharField(
         max_length=50,

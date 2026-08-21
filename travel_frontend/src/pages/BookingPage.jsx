@@ -12,6 +12,13 @@ export default function BookingPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [bookingId, setBookingId] = useState(null);
+  const [clientRequestId] = useState(() => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  });
   const [formData, setFormData] = useState({
     full_name: '',
     contact_no: '',
@@ -59,6 +66,7 @@ export default function BookingPage() {
     try {
       const response = await recommendationAPI.createBooking({
         package: Number(packageId),
+        client_request_id: clientRequestId,
         ...formData,
       });
 

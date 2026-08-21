@@ -189,6 +189,38 @@ class RecommendationAPITests(APITestCase):
         self.assertEqual(response.data["packages"], [])
         self.assertEqual(response.data["package_count"], 0)
 
+    def test_online_booking_retry_returns_the_existing_booking(self):
+        payload = {
+            "package": self.package_adventure.id,
+            "full_name": "Test Traveler",
+            "contact_no": "9812345678",
+            "email": "traveler@example.com",
+            "payment_method": "Online Payment",
+            "client_request_id": "booking-request-123",
+        }
+
+        first_response = self.client.post(
+            reverse("booking-create"),
+            payload,
+            format="json",
+        )
+        second_response = self.client.post(
+            reverse("booking-create"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            first_response.data["booking"]["id"],
+            second_response.data["booking"]["id"],
+        )
+        self.assertEqual(
+            self.user.bookings.filter(client_request_id="booking-request-123").count(),
+            1,
+        )
+
     def test_recommendation_uses_profile_location_when_request_missing(self):
         """
         Verify that the user's saved profile location is used when

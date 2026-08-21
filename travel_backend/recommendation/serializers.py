@@ -21,6 +21,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'full_name',
             'contact_no',
             'email',
+            'client_request_id',
             'payment_method',
             'payment_status',
             'stripe_checkout_session_id',
